@@ -123,12 +123,12 @@ impl<'a> Lexer<'a> {
             '.' => self.add_token(TokenKind::Dot),
             ';' => self.add_token(TokenKind::Semi),
             '*' => self.add_token(TokenKind::Star),
-            ':' => self.add_token(TokenKind::Colon),
             '%' => self.add_token(TokenKind::Percent),
             '~' => self.add_token(TokenKind::Tilde),
             '?' => self.add_token(TokenKind::Question),
 
             // Single or double
+            ':' => try_match!(':' => DColon | Colon),
             '!' => try_match!('=' => BangEq | Bang),
             '=' => try_match!('=' => EqualEq | Equal),
             '<' => try_match!('=' => LessEq | Less),
