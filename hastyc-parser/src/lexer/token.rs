@@ -5,12 +5,23 @@ use hastyc_common::{span::Span, identifiers::SourceFileID};
 #[derive(Debug, Clone)]
 pub struct TokenStream {
     pub source: SourceFileID,
-    pub tokens: Arc<Vec<Token>>
+    pub tokens: Arc<Vec<Token>>,
 }
 
 impl TokenStream {
+    pub fn empty() -> Self {
+        Self {
+            source: SourceFileID(0),
+            tokens: Arc::new(Vec::new())
+        }
+    }
+
     pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Token> {
         self.tokens.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.tokens.len()
     }
 }
 
@@ -41,7 +52,7 @@ impl Token {
 
 /// Kind of token, this does not contain any information about its
 /// contents nor any additional data.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     // Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -69,7 +80,7 @@ pub enum TokenKind {
 }
 
 /// Kind of literal token.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LiteralKind {
     Int {
         base: Base
@@ -82,7 +93,7 @@ pub enum LiteralKind {
 }
 
 /// Numeric base of integer literal.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Base {
     Binary,
     Octal,
