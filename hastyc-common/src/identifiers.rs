@@ -33,13 +33,17 @@ impl SymbolStorage {
             self.register(text)
         }
     }
+
+    pub fn text_of(&self, symbol: Symbol) -> Option<&String> {
+        self.id_map.get(&symbol.0)
+    }
 }
 
 /// Single identifier like "Hello", "function_name" or sth like that.
 #[derive(Debug, Clone)]
 pub struct Ident {
-    symbol: Symbol,
-    span: Span
+    pub symbol: Symbol,
+    pub span: Span
 }
 
 impl Ident {

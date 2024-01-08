@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::identifiers::{PkgID, SourceFileID};
+use crate::{identifiers::{PkgID, SourceFileID}, span::Span};
 
 /// Source file mapping. This is used for keeping track of
 /// where does specified part of the source code come from.
@@ -66,6 +66,18 @@ impl SourceFile {
             lines: lines,
             pkg,
             id
+        }
+    }
+
+    /// Get span from the file
+    pub fn get_span(&self, span: &Span) -> String {
+        if let Some(ref src) = self.src {
+            src.chars()
+                .skip(span.start as usize)
+                .take((span.end - span.start) as usize)
+                .collect()
+        } else {
+            unimplemented!("Getting span of sources without loaded source is unimplemented")
         }
     }
 }

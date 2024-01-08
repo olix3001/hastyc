@@ -1,19 +1,9 @@
 use hastyc_common::{identifiers::{PkgID, SourceFileID}, source::SourceFile};
-use hastyc_parser::lexer::Lexer;
+use hastyc_parser::{lexer::Lexer, parser::Parser};
 
 const CODE: &str = "
-struct Hello {
-    bruh: i32
-}
+module hello {
 
-impl Hello {
-    pub override(+) fn add_i32(self, other: i32) -> i32 {
-        self.bruh + other
-    }
-
-    pub fn inc(self) {
-        self.bruh += 1
-    }
 }
 ";
 
@@ -24,7 +14,8 @@ fn main() {
         SourceFileID::new_unique()
     );
 
-    let ts = Lexer::lex(&source);
+    let ts = Lexer::lex(&source).unwrap();
+    let package = Parser::parse_from_root(&source, &ts);
 
-    println!("Token stream: {:?}", ts);
+    println!("AST: {:#?}", package);
 }

@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use hastyc_common::{identifiers::{ASTNodeID, IDCounter}, span::Span};
+use hastyc_common::{identifiers::{ASTNodeID, IDCounter, Ident}, span::Span, path::Path};
 
 /// Currently unimplemented, basically there for future implementation.
 #[derive(Debug, Default)]
 pub struct Attributes { }
 
 /// Source package, this is basically a root node for the whole AST.
+#[derive(Debug)]
 pub struct Package {
     pub attrs: Attributes,
     pub items: ItemStream,
@@ -40,6 +41,7 @@ pub struct Item {
     pub id: ASTNodeID,
     pub visibility: Visibility,
     pub kind: ItemKind,
+    pub ident: Ident,
     pub span: Span
 }
 
@@ -53,16 +55,25 @@ pub enum Visibility {
 /// struct definitions, constants, etc...
 #[derive(Debug)]
 pub enum ItemKind {
-    Module(ModuleKind)
+    Module(ItemStream),
+    Import(ImportTree)
 }
 
-/// Kind of module as modules can be defined in separate files or inlined.
+/// As Hasty uses import system inspired by Rust, imports are not paths,
+/// but trees. For example `import a::{b, c::{self, d}}` will produce a tree.
 #[derive(Debug)]
-pub enum ModuleKind {
-    /// Inline module.
-    Inlined(ItemStream),
-    /// Module defined in an external file which is already loaded.
-    External(ItemStream),
-    /// Module defined in an external file which is not yet loaded.
-    Unloaded
+pub struct ImportTree {
+    prefix: Path,
+    kind: ImportTreeKind,
+    span: Span
+}
+
+#[derive(Debug)]
+pub enum ImportTreeKind {
+    /// Import prefix
+    Simple(Option<Ident>),
+    /// import prefix::{ ... }
+    Nested(Vec<(ImportTree, ASTNodeID)>),
+    /// import prefix::*
+    Glob
 }
