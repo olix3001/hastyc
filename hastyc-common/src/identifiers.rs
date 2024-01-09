@@ -12,11 +12,13 @@ pub struct SymbolStorage {
 
 impl SymbolStorage {
     pub fn new() -> Self {
-        Self {
+        let mut s = Self {
             counter: IDCounter::create(),
             id_map: BTreeMap::new(),
             inverse_map: HashMap::new()
-        }
+        };
+        s.register("<dummy>");
+        s
     }
 
     fn register(&mut self, text: &str) -> Symbol {

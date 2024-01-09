@@ -13,6 +13,8 @@ import pkg::hello::{world, lorem::ipsum};
 ";
 
 fn main() {
+    env_logger::init();
+
     let source = SourceFile::new_raw(
         CODE.to_string(),
         PkgID::new_unique(),
@@ -26,7 +28,7 @@ fn main() {
         panic!("{:?}", err);
     }
 
-    println!("AST: {}", 
-        PackageASTPrettyPrinter::pretty_print(&package.unwrap())
-    );
+    // println!("AST: {}", 
+    //     PackageASTPrettyPrinter::pretty_print(&package.unwrap())
+    // );
 }

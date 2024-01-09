@@ -60,6 +60,15 @@ pub enum ItemKind {
     Import(ImportKind, ImportTree)
 }
 
+impl ItemKind {
+    pub fn name_of_type(&self) -> &'static str {
+        match self {
+            Self::Module(_) => "Module",
+            Self::Import(_, _) => "Import"
+        }
+    }
+}
+
 /// Imports can be either relative (eg. `import hello::world`),
 /// super (eg. `import super::hello`), or package based (eg. `import pkg::hello`).
 #[derive(Debug)]

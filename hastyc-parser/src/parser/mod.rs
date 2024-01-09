@@ -5,6 +5,8 @@ use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, 
 
 use crate::lexer::{TokenStream, Token, TokenKind};
 
+use log::{debug, trace};
+
 pub struct Parser<'pkg, 'a> {
     package: &'pkg Package,
     tokens: &'a TokenStream,
@@ -45,10 +47,12 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             symbol_storage: SymbolStorage::new()
         };
 
-        let items = Self::parse_stream(root_file, root_ts, &mut package)?;
+        debug!(target: "parser", "Starting parse of package from root: {:?}.", root_file.name);
+        let items = Self::parse_root_stream(root_file, root_ts, &mut package)?;
 
         package.items = items;
 
+        trace!(target: "parser", "Package symbol storage dump: {:?}.", package.symbol_storage);
         Ok(package)
     }
 
@@ -145,7 +149,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     // Parsing functions
-    pub fn parse_stream(root_file: &'a SourceFile, token_stream: &'a TokenStream, pkg: &mut Package) -> Result<ItemStream, ParserError> {
+    pub fn parse_root_stream(root_file: &'a SourceFile, token_stream: &'a TokenStream, pkg: &mut Package) -> Result<ItemStream, ParserError> {
         let mut parser = Parser {
             tokens: token_stream,
             current: 0,
@@ -157,6 +161,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
         while !parser.is_at_end() {
             let item = parser.parse_item()?;
+
             items.push(item);
         }
 
@@ -185,6 +190,12 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         };
 
         item.visibility = vis;
+        debug!(target: "parser",
+            "Parsed item '{}' of type '{}'.",
+            self.symbol_storage.text_of(item.ident.symbol).unwrap(),
+            item.kind.name_of_type()
+        );
+        trace!(target: "parser", "Parsed item: {:?}.", item);
         Ok(item)
     }
 
@@ -251,6 +262,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     pub fn parse_import_tree(&mut self) -> Result<ImportTree, ParserError> {
         let span_start = self.previous().span;
         let prefix = self.parse_import_prefix_path()?;
+        trace!(target: "parser", "Found path with prefix '{:?}'.", prefix);
 
         // First: check for glob
         if self.try_match(TokenKind::Star) {
@@ -270,6 +282,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         // Third: check for nested tree
         if has_dcolon && self.try_match(TokenKind::LeftBrace) {
             let mut subtrees = Vec::new();
+            trace!(target: "parser", "Parsing nested import tree.");
             loop {
                 let subtree = self.parse_import_tree()?;
                 subtrees.push(subtree);
