@@ -4,7 +4,12 @@ use hastyc_parser::{lexer::Lexer, parser::Parser};
 
 const CODE: &str = "
 import hello::world::{bruh, lool::self};
-import hello::world::{lorem::ipsum, dolor::{sit, amet::self}, self};
+module test {
+    import hello::world::{lorem::ipsum, dolor::{sit, amet::self}, self};
+}
+
+import super::loool::{xd, self};
+import pkg::hello::{world, lorem::ipsum};
 ";
 
 fn main() {

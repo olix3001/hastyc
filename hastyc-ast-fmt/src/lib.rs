@@ -55,8 +55,8 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                 self.item_stream(is);
                 self.popi();
             },
-            ItemKind::Import(ref it) => {
-                self.push_line("Import:");
+            ItemKind::Import(ref kind, ref it) => {
+                self.push_line(&format!("Import ({:?}):", kind));
                 self.pushi();
                 self.import_tree(it);
                 self.popi();

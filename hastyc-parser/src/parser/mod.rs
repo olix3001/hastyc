@@ -222,6 +222,17 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     /// Import like `import hello::world` or `import hello::{world, lorem::{ipsum, self}}`
     pub fn parse_import(&mut self) -> Result<Item, ParserError> {
         let span_keyword = self.previous().span;
+
+        // Special cases: pkg and super
+        let mut kind = ImportKind::Relative;
+        if self.try_match(TokenKind::Pkg) {
+            kind = ImportKind::Package;
+            self.consume(TokenKind::DColon)?;
+        } else if self.try_match(TokenKind::Super) {
+            kind = ImportKind::Super;
+            self.consume(TokenKind::DColon)?;
+        }
+
         let tree = self.parse_import_tree()?;
 
         // Semicolon at the end of import :D
@@ -231,7 +242,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             attrs: Attributes::default(), // TODO: Parse attributes !IMPORTANT!
             id: self.node_id(),
             visibility: Visibility::Inherited,
-            kind: ItemKind::Import(tree),
+            kind: ItemKind::Import(kind, tree),
             ident: Ident::dummy(), // Import is the only item without name
             span: Span::from_begin_end(span_keyword, self.previous().span)
         })

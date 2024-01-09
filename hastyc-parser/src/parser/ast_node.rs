@@ -57,7 +57,16 @@ pub enum Visibility {
 #[derive(Debug)]
 pub enum ItemKind {
     Module(ItemStream),
-    Import(ImportTree)
+    Import(ImportKind, ImportTree)
+}
+
+/// Imports can be either relative (eg. `import hello::world`),
+/// super (eg. `import super::hello`), or package based (eg. `import pkg::hello`).
+#[derive(Debug)]
+pub enum ImportKind {
+    Relative,
+    Super,
+    Package
 }
 
 /// As Hasty uses import system inspired by Rust, imports are not paths,
