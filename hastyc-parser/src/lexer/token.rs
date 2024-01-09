@@ -77,6 +77,9 @@ pub enum TokenKind {
     Literal {
         kind: LiteralKind
     },
+
+    // ONLY for error reporting
+    EOF
 }
 
 /// Kind of literal token.

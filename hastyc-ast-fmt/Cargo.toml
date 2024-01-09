@@ -1,11 +1,10 @@
 [package]
-name = "hastyc-testing"
+name = "hastyc-ast-fmt"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hastyc-common = { path = "../hastyc-common" }
 hastyc-parser = { path = "../hastyc-parser" }
-hastyc-ast-fmt = { path = "../hastyc-ast-fmt" }
+hastyc-common = { path = "../hastyc-common" }

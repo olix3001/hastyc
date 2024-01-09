@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hastyc_common::{identifiers::{ASTNodeID, IDCounter, Ident}, span::Span, path::Path};
+use hastyc_common::{identifiers::{ASTNodeID, IDCounter, Ident, SymbolStorage}, span::Span, path::Path};
 
 /// Currently unimplemented, basically there for future implementation.
 #[derive(Debug, Default)]
@@ -12,7 +12,8 @@ pub struct Package {
     pub attrs: Attributes,
     pub items: ItemStream,
     pub id: ASTNodeID,
-    pub idgen: IDCounter
+    pub idgen: IDCounter,
+    pub symbol_storage: SymbolStorage
 }
 
 /// Stream of language items.
@@ -63,15 +64,56 @@ pub enum ItemKind {
 /// but trees. For example `import a::{b, c::{self, d}}` will produce a tree.
 #[derive(Debug)]
 pub struct ImportTree {
-    prefix: Path,
-    kind: ImportTreeKind,
-    span: Span
+    pub prefix: Path,
+    pub kind: ImportTreeKind,
+    pub span: Span
+}
+
+impl ImportTree {
+    /// Import tree with only prefix, name and span
+    pub fn simple(mut name: Path, span: Span) -> Self {
+        let import_name = name.pop();
+        Self {
+            prefix: name,
+            kind: ImportTreeKind::Simple(import_name.unwrap().into()),
+            span
+        }
+    }
+
+    /// Import tree with * import
+    pub fn glob(name: Path, span: Span) -> Self {
+        Self {
+            prefix: name,
+            kind: ImportTreeKind::Glob,
+            span
+        }
+    }
+
+    /// Nested import
+    pub fn nested(prefix: Path, imports: Vec<(ImportTree, ASTNodeID)>, span: Span) -> Self {
+        Self {
+            prefix,
+            kind: ImportTreeKind::Nested(imports),
+            span
+        }
+    }
+
+    /// Self import
+    pub fn self_import(prefix: Path, span: Span) -> Self {
+        Self {
+            prefix,
+            kind: ImportTreeKind::SelfImport,
+            span
+        }
+    }
 }
 
 #[derive(Debug)]
 pub enum ImportTreeKind {
     /// Import prefix
-    Simple(Option<Ident>),
+    Simple(Ident),
+    /// Self import
+    SelfImport,
     /// import prefix::{ ... }
     Nested(Vec<(ImportTree, ASTNodeID)>),
     /// import prefix::*

@@ -1,7 +1,7 @@
 mod ast_node;
 
 pub use ast_node::*;
-use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, Ident, ASTNodeID}, span::Span};
+use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, Ident, ASTNodeID}, span::Span, path::{Path, PathSegment}};
 
 use crate::lexer::{TokenStream, Token, TokenKind};
 
@@ -30,7 +30,8 @@ pub enum ParserError {
 
 #[derive(Debug)]
 pub enum NameTarget {
-    Module
+    Module,
+    Import
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
@@ -40,10 +41,11 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             attrs: Attributes::default(), // TODO: Parse attributes
             items: ItemStream::empty(),
             id: (&counter).into(),
-            idgen: counter
+            idgen: counter,
+            symbol_storage: SymbolStorage::new()
         };
 
-        let items = Self::parse_stream(root_file, root_ts, &package)?;
+        let items = Self::parse_stream(root_file, root_ts, &mut package)?;
 
         package.items = items;
 
@@ -82,6 +84,15 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         // this method we check to ensure we are not at the end.
         self.tokens.iter().nth(self.current).unwrap()
     }
+    /// Can return EOF, but clones the value, so peek is preferable.
+    fn safe_peek(&self) -> Token {
+        if self.is_at_end() { Token {
+            kind: TokenKind::EOF,
+            span: Span::dummy()
+        }} else {
+            self.peek().clone()
+        }
+    }
 
     fn previous(&self) -> &Token {
         self.tokens.iter().nth(self.current - 1).unwrap()
@@ -115,6 +126,15 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         if self.check(tk) {
             Ok(self.advance())
         } else {
+            if self.is_at_end() {
+                Err(
+                    ParserError::ExpectedToken {
+                        expected: tk,
+                        found: Token { kind: TokenKind::EOF, span: Span::dummy() }
+                    }
+                )?
+            }
+
             Err(
                 ParserError::ExpectedToken {
                     expected: tk,
@@ -125,7 +145,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     // Parsing functions
-    pub fn parse_stream(root_file: &'a SourceFile, token_stream: &'a TokenStream, pkg: &Package) -> Result<ItemStream, ParserError> {
+    pub fn parse_stream(root_file: &'a SourceFile, token_stream: &'a TokenStream, pkg: &mut Package) -> Result<ItemStream, ParserError> {
         let mut parser = Parser {
             tokens: token_stream,
             current: 0,
@@ -140,6 +160,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             items.push(item);
         }
 
+        pkg.symbol_storage = parser.symbol_storage;
         Ok(ItemStream::from_items(items))
     }
 
@@ -153,6 +174,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         // Every item has its own keyword, which makes the work a lot easier :D
         let mut item = match self.advance().kind {
             TokenKind::Module => self.parse_module()?,
+            TokenKind::Import => self.parse_import()?,
             _ => {
                 Err(
                     ParserError::ExpectedItem {
@@ -193,7 +215,103 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             visibility: Visibility::Inherited,
             kind: ItemKind::Module(ItemStream::from_items(items)),
             ident: name,
-            span: Span::new(span_keyword.source, span_keyword.start, span_end.end)
+            span: Span::from_begin_end(span_keyword, span_end)
+        })
+    }
+
+    /// Import like `import hello::world` or `import hello::{world, lorem::{ipsum, self}}`
+    pub fn parse_import(&mut self) -> Result<Item, ParserError> {
+        let span_keyword = self.previous().span;
+        let tree = self.parse_import_tree()?;
+
+        // Semicolon at the end of import :D
+        self.consume(TokenKind::Semi)?;
+
+        Ok(Item {
+            attrs: Attributes::default(), // TODO: Parse attributes !IMPORTANT!
+            id: self.node_id(),
+            visibility: Visibility::Inherited,
+            kind: ItemKind::Import(tree),
+            ident: Ident::dummy(), // Import is the only item without name
+            span: Span::from_begin_end(span_keyword, self.previous().span)
+        })
+    }
+
+    pub fn parse_import_tree(&mut self) -> Result<ImportTree, ParserError> {
+        let span_start = self.previous().span;
+        let prefix = self.parse_import_prefix_path()?;
+
+        // First: check for glob
+        if self.try_match(TokenKind::Star) {
+            let span = Span::from_begin_end(span_start, self.previous().span);
+            return Ok(ImportTree::glob(prefix, span))
+        }
+        
+        // Second: Self import
+        let has_dcolon = self.previous().kind == TokenKind::DColon;
+        if (has_dcolon || prefix.len() == 0) && self.try_match(TokenKind::LSelf) {
+            return Ok(ImportTree::self_import(
+                prefix,
+                Span::from_begin_end(span_start, self.previous().span)
+            ))
+        }
+
+        // Third: check for nested tree
+        if has_dcolon && self.try_match(TokenKind::LeftBrace) {
+            let mut subtrees = Vec::new();
+            loop {
+                let subtree = self.parse_import_tree()?;
+                subtrees.push(subtree);
+                if !self.try_match(TokenKind::Comma) { break; }
+            }
+            self.consume(TokenKind::RightBrace)?;
+            return Ok(ImportTree::nested(
+                prefix,
+                subtrees.into_iter().map(|i| (i, self.node_id())).collect(),
+                Span::from_begin_end(span_start, self.previous().span)
+            ))
+        }
+
+        // Forth: Simple import
+        if prefix.len() == 0 {
+            Err(
+                ParserError::ExpectedName {
+                    target: NameTarget::Import,
+                    found: self.safe_peek()
+                }
+            )?
+        }
+
+        Ok(ImportTree::simple(
+            prefix, 
+            Span::from_begin_end(span_start, self.previous().span)
+        ))
+    }
+
+    /// For import like `hello::world::{lorem, ipsum}` prefix path would be the hello::world part.
+    pub fn parse_import_prefix_path(&mut self) -> Result<Path, ParserError> {
+        let span_start = self.previous().span;
+        let mut path_segments = Vec::new();
+
+        while self.check(TokenKind::Ident) {
+            let ident = self.expect_ident(
+                ParserError::ExpectedName { 
+                    target: NameTarget::Import, 
+                    found: self.previous().clone()
+                }
+            )?;
+
+            path_segments.push(PathSegment::new(ident));
+
+            // Check for double colon
+            if !self.try_match(TokenKind::DColon) { break; }
+        }
+        let span_end = self.previous().span;
+        let span = Span::from_begin_end(span_start, span_end);
+
+        Ok(Path {
+            segments: path_segments, 
+            span
         })
     }
 }

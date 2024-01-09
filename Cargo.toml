@@ -3,5 +3,6 @@ resolver = "2"
 members = [
     "hastyc-common",
     "hastyc-parser",
+    "hastyc-ast-fmt",
     "hastyc-testing"
 ]

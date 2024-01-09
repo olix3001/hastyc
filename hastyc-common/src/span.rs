@@ -24,6 +24,22 @@ impl Span {
         }
     }
 
+    pub fn dummy() -> Self {
+        Self {
+            start: 0,
+            end: 0,
+            source: SourceFileID(0)
+        }
+    }
+
+    pub fn from_begin_end(begin: Span, end: Span) -> Self {
+        Self {
+            start: begin.start,
+            end: end.end,
+            source: begin.source
+        }
+    }
+
     pub fn len(&self) -> u32 {
         self.end - self.start
     }

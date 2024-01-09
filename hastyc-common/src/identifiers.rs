@@ -53,6 +53,13 @@ impl Ident {
             span
         }
     }
+
+    pub fn dummy() -> Self {
+        Self {
+            symbol: Symbol(0),
+            span: Span::dummy()
+        }
+    }
 }
 
 /// Symbol used for string interning, this holds only id of internal ident
