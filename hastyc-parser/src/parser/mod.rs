@@ -25,7 +25,7 @@ pub enum ParserError {
     ExpectedName {
         target: NameTarget,
         found: Token
-    }
+    },
 }
 
 #[derive(Debug)]
@@ -44,6 +44,8 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         };
 
         let items = Self::parse_stream(root_file, root_ts, &package)?;
+
+        package.items = items;
 
         Ok(package)
     }
@@ -174,12 +176,22 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             }
         )?;
 
+        self.consume(TokenKind::LeftBrace)?;
+
+        let mut items = Vec::new();
+        while !self.check(TokenKind::RightBrace) {
+            let i = self.parse_item()?;
+            items.push(i);
+        }
+
+        self.consume(TokenKind::RightBrace)?;
+
         let span_end = self.previous().span;
         Ok(Item {
             attrs: Attributes::default(), // TODO: Parse attributes !IMPORTANT!
             id: self.node_id(),
             visibility: Visibility::Inherited,
-            kind: ItemKind::Module(ItemStream::empty()), // TODO: parse itemstream
+            kind: ItemKind::Module(ItemStream::from_items(items)),
             ident: name,
             span: Span::new(span_keyword.source, span_keyword.start, span_end.end)
         })

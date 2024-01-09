@@ -3,7 +3,9 @@ use hastyc_parser::{lexer::Lexer, parser::Parser};
 
 const CODE: &str = "
 module hello {
-
+    module bruh {
+        
+    }
 }
 ";
 
@@ -17,5 +19,5 @@ fn main() {
     let ts = Lexer::lex(&source).unwrap();
     let package = Parser::parse_from_root(&source, &ts);
 
-    println!("AST: {:#?}", package);
+    println!("AST: {:?}", package);
 }
