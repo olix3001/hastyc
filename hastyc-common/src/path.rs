@@ -1,7 +1,7 @@
 use crate::{identifiers::Ident, span::Span};
 
 /// Path to an item. For example this could be `hello::world::MyStruct`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Path {
     pub segments: Vec<PathSegment>,
     pub span: Span
@@ -25,7 +25,7 @@ impl Path {
 }
 
 /// Single path segment representing just one path ident.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PathSegment {
     pub ident: Ident,
 }

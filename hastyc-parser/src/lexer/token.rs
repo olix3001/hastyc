@@ -70,7 +70,7 @@ pub enum TokenKind {
     Break, Continue, Return, LSelf, USelf, Let, Nil,
     Guard, Pub, Const, Static, Import, As, Module,
     Super, Pkg, Match, Struct, Trait, Impl, Enum,
-    Getter, Setter, Override, Where,
+    Getter, Setter, Override, Where, Async, Await,
 
     // Special and other
     Ident,

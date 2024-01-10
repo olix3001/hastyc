@@ -272,6 +272,8 @@ impl<'a> Lexer<'a> {
                 "setter" => TokenKind::Setter,
                 "override" => TokenKind::Override,
                 "where" => TokenKind::Where,
+                "async" => TokenKind::Async,
+                "await" => TokenKind::Await,
 
                 // Ident
                 _ => TokenKind::Ident
