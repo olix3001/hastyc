@@ -33,14 +33,15 @@ pub enum ParserError {
 #[derive(Debug)]
 pub enum NameTarget {
     Module,
-    Import
+    Import,
+    Attribute
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
     pub fn parse_from_root(root_file: &'a SourceFile, root_ts: &'a TokenStream) -> Result<Package, ParserError> {
         let counter = IDCounter::create();
         let mut package = Package {
-            attrs: Attributes::default(), // TODO: Parse attributes
+            attrs: Attributes::empty(), // TODO: Parse global attributes
             items: ItemStream::empty(),
             id: (&counter).into(),
             idgen: counter,
@@ -169,9 +170,47 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         Ok(ItemStream::from_items(items))
     }
 
+    /// Parse attribute like `#[attribute]`.
+    pub fn try_parse_attribute(&mut self, _can_be_global: bool) -> Result<Option<Attribute>, ParserError> {
+        //? can_be_global is a placeholder for later use
+        // Try to parse hashtag
+        if self.try_match(TokenKind::Hash) {
+            self.consume(TokenKind::LeftBracket)?;
+            
+            let ident = self.expect_ident(
+                ParserError::ExpectedName {
+                    target: NameTarget::Attribute,
+                    found: self.previous().clone()
+                }
+            )?;
+
+            // Currently only option is unnamed argument, so just expect that
+            self.consume(TokenKind::RightBracket)?;
+            Ok(Some(Attribute { ident, kind: AttributeKind::FlagAttribute }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Parse attributes. This can return empty vector if none are found.
+    pub fn parse_attributes(&mut self) -> Result<Attributes, ParserError> {
+        let mut attribs = Vec::new();
+        loop {
+            match self.try_parse_attribute(false)? {
+                Some(attr) => attribs.push(attr),
+                None => break
+            }
+        }
+        Ok(Attributes {
+            attributes: attribs
+        })
+    }
+
     /// Parse single item, this can be module definition, structure,
     /// trait, function or anything top-level.
     pub fn parse_item(&mut self) -> Result<Item, ParserError> {
+        let attribs = self.parse_attributes()?;
+
         let vis = if self.try_match(TokenKind::Pub) {
             Visibility::Public
         } else { Visibility::Inherited };
@@ -190,6 +229,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         };
 
         item.visibility = vis;
+        item.attrs = attribs;
         debug!(target: "parser",
             "Parsed item '{}' of type '{}'.",
             self.symbol_storage.text_of(item.ident.symbol).unwrap(),
@@ -221,7 +261,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
         let span_end = self.previous().span;
         Ok(Item {
-            attrs: Attributes::default(), // TODO: Parse attributes !IMPORTANT!
+            attrs: Attributes::empty(),
             id: self.node_id(),
             visibility: Visibility::Inherited,
             kind: ItemKind::Module(ItemStream::from_items(items)),
@@ -250,7 +290,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         self.consume(TokenKind::Semi)?;
 
         Ok(Item {
-            attrs: Attributes::default(), // TODO: Parse attributes !IMPORTANT!
+            attrs: Attributes::empty(),
             id: self.node_id(),
             visibility: Visibility::Inherited,
             kind: ItemKind::Import(kind, tree),

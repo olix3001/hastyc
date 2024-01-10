@@ -3,13 +3,10 @@ use hastyc_common::{identifiers::{PkgID, SourceFileID}, source::SourceFile};
 use hastyc_parser::{lexer::Lexer, parser::Parser};
 
 const CODE: &str = "
-import hello::world::{bruh, lool::self};
-module test {
-    import hello::world::{lorem::ipsum, dolor::{sit, amet::self}, self};
-}
+#[test_attribute]
+#[yoooo]
+import hello::world;
 
-import super::loool::{xd, self};
-import pkg::hello::{world, lorem::ipsum};
 ";
 
 fn main() {
@@ -28,7 +25,7 @@ fn main() {
         panic!("{:?}", err);
     }
 
-    // println!("AST: {}", 
-    //     PackageASTPrettyPrinter::pretty_print(&package.unwrap())
-    // );
+    println!("AST: {}", 
+        PackageASTPrettyPrinter::pretty_print(&package.unwrap())
+    );
 }

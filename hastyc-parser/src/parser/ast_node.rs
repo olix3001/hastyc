@@ -3,8 +3,32 @@ use std::sync::Arc;
 use hastyc_common::{identifiers::{ASTNodeID, IDCounter, Ident, SymbolStorage}, span::Span, path::Path};
 
 /// Currently unimplemented, basically there for future implementation.
-#[derive(Debug, Default)]
-pub struct Attributes { }
+#[derive(Debug, Clone)]
+pub struct Attributes {
+    pub attributes: Vec<Attribute>
+}
+
+impl Attributes {
+    pub fn empty() -> Self {
+        Self {
+            attributes: Vec::new()
+        }
+    }
+}
+
+/// One single attribute
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub ident: Ident,
+    pub kind: AttributeKind
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeKind {
+    /// Attribute without any additional data like `#[hello]`
+    FlagAttribute,
+    // TODO: Add more attribute kinds when necessary
+}
 
 /// Source package, this is basically a root node for the whole AST.
 #[derive(Debug)]

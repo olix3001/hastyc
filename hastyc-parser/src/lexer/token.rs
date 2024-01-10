@@ -59,7 +59,7 @@ pub enum TokenKind {
     LeftBracket, RightBracket, Comma, Dot, Minus,
     Plus, Semi, Slash, Star, Underscore, Bang,
     Equal, Less, Greater, Ampersand, Pipe, Colon, Percent,
-    Dollar, Tilde, Question,
+    Dollar, Tilde, Question, Hash,
 
     // Two-character tokens
     BangEq, EqualEq, LessEq, GreaterEq,

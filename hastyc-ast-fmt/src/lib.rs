@@ -1,5 +1,5 @@
 use hastyc_common::{identifiers::Ident, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -47,7 +47,17 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
         }
     }
 
+    fn attributes(&mut self, attributes: &Attributes) {
+        for attr in attributes.attributes.iter() {
+            match attr.kind {
+                AttributeKind::FlagAttribute => 
+                    self.push_line(&format!("#[{}]", self.ident(&attr.ident)))
+            }
+        }
+    }
+
     fn item(&mut self, item: &Item) {
+        self.attributes(&item.attrs);
         match item.kind {
             ItemKind::Module(ref is) => {
                 self.push_line(&format!("Module \"{}\":", self.ident(&item.ident)));

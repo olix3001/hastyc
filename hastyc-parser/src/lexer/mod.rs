@@ -126,6 +126,7 @@ impl<'a> Lexer<'a> {
             '%' => self.add_token(TokenKind::Percent),
             '~' => self.add_token(TokenKind::Tilde),
             '?' => self.add_token(TokenKind::Question),
+            '#' => self.add_token(TokenKind::Hash),
 
             // Single or double
             ':' => try_match!(':' => DColon | Colon),
