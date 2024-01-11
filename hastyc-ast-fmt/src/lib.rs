@@ -1,5 +1,5 @@
 use hastyc_common::{identifiers::Ident, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -71,7 +71,12 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                 self.import_tree(it);
                 self.popi();
             }
-            ItemKind::Fn(_) => self.push_line("Function goes here :D")
+            ItemKind::Fn(ref function) => {
+                self.push_line(&format!("Function {}:", self.ident(&item.ident)));
+                self.pushi();
+                self.function_signature(&function.signature);
+                self.popi();
+            }
         }
     }
 
@@ -102,5 +107,50 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
 
         txt.pop();txt.pop(); // remove last '::'
         txt
+    }
+
+    fn function_signature(&mut self, sig: &FnSignature) {
+        let mut string = String::new();
+
+        if sig.is_const { string.push_str("const ")}
+        if sig.is_async { string.push_str("async ")}
+        
+        string.push_str("fn(");
+
+        for arg in sig.inputs.iter() {
+            string.push_str(&self.pat(&arg.pat));
+            string.push_str(": ");
+            string.push_str(&self.ty(&arg.ty));
+
+            string.push_str(", ");
+        }
+        string.pop();
+        string.push(')');
+
+        string.push_str(" -> ");
+
+        let output = match sig.output {
+            FnRetTy::Default => "default".to_string(),
+            FnRetTy::Ty(ref ty) => self.ty(ty).to_string()
+        };
+        string.push_str(&output);
+
+        self.push_line(&string);
+    }
+
+    fn pat(&self, pat: &Pat) -> String {
+        match pat.kind {
+            PatKind::SelfPat => "self".to_string(),
+            PatKind::Ident(ref ident) => self.ident(ident).to_string()
+        }
+    }
+
+    fn ty(&self, ty: &Ty) -> String {
+        match ty.kind {
+            TyKind::SelfTy => "self".to_string(),
+            TyKind::Void => "void".to_string(),
+            TyKind::Never => "never".to_string(),
+            TyKind::Path(ref path) => self.path(path)
+        }
     }
 }
