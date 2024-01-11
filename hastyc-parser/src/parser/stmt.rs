@@ -8,6 +8,14 @@ pub struct StmtStream {
     pub stmts: Vec<Stmt>
 }
 
+impl StmtStream {
+    pub fn empty() -> Self {
+        Self {
+            stmts: Vec::new()
+        }
+    }
+}
+
 /// One single statement, this can be variable declaration,
 /// function call, some conditional flow or things like that.
 #[derive(Debug, Clone)]

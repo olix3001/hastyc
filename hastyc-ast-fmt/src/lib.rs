@@ -71,6 +71,7 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                 self.import_tree(it);
                 self.popi();
             }
+            ItemKind::Fn(_) => self.push_line("Function goes here :D")
         }
     }
 

@@ -182,6 +182,16 @@ pub struct Block {
     pub span: Span,
 }
 
+impl Block {
+    pub fn empty() -> Self {
+        Self {
+            stmts: StmtStream::empty(),
+            id: ASTNodeID(0),
+            span: Span::dummy()
+        }
+    }
+}
+
 /// Generics. These are those `<T>` thingies.
 #[derive(Debug, Clone)]
 pub struct Generics {
@@ -249,5 +259,6 @@ pub struct Pat {
 /// Kind of pattern.
 #[derive(Debug, Clone)]
 pub enum PatKind {
+    SelfPat,
     Ident(Ident)
 }

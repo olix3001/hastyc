@@ -7,6 +7,9 @@ const CODE: &str = "
 #[yoooo]
 import hello::world;
 
+pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
+
+}
 ";
 
 fn main() {

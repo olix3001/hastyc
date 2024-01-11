@@ -63,7 +63,7 @@ pub enum TokenKind {
 
     // Two-character tokens
     BangEq, EqualEq, LessEq, GreaterEq,
-    And, Or, Inc, Dec, DColon,
+    And, Or, Inc, Dec, DColon, ThinArrow, ThickArrow,
 
     // Keywords
     Fn, If, Else, True, False, While, For, In, Loop,

@@ -36,7 +36,9 @@ pub enum ParserError {
 pub enum NameTarget {
     Module,
     Import,
-    Attribute
+    Attribute,
+    Fn,
+    Type
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
@@ -221,6 +223,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         let mut item = match self.advance().kind {
             TokenKind::Module => self.parse_module()?,
             TokenKind::Import => self.parse_import()?,
+            TokenKind::Fn => self.parse_fn()?,
             _ => {
                 Err(
                     ParserError::ExpectedItem {
@@ -379,5 +382,178 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             segments: path_segments, 
             span
         })
+    }
+
+    pub fn parse_fn(&mut self) -> Result<Item, ParserError> {
+        let span_start = self.previous().span;
+        // get function name
+        let ident = self.expect_ident(
+            ParserError::ExpectedName {
+                target: NameTarget::Fn,
+                found: self.previous().clone()
+            }
+        )?;
+
+        // Argument list
+        let mut args = Vec::new();
+        self.consume(TokenKind::LeftParen)?;
+        while !self.check(TokenKind::RightParen) {
+            let arg = self.parse_fn_arg()?;
+            args.push(arg);
+
+            if !self.try_match(TokenKind::Comma) {
+                break;
+            }
+        }
+        self.consume(TokenKind::RightParen)?;
+
+        // Possible return type
+        let ret_ty = if self.try_match(TokenKind::ThinArrow) {
+            FnRetTy::Ty(self.parse_ty()?)
+        } else { FnRetTy::Default };
+
+        let sig_span_end = self.previous().span;
+
+        // Body
+        // Temporary
+        self.consume(TokenKind::LeftBrace)?;
+        self.consume(TokenKind::RightBrace)?;
+
+        // Return
+        Ok(Item {
+            attrs: Attributes::empty(),
+            id: self.node_id(),
+            visibility: Visibility::Inherited,
+            kind: ItemKind::Fn(
+                Function {
+                    generics: Generics {},
+                    signature: FnSignature {
+                        is_const: false,
+                        is_async: false,
+                        inputs: args,
+                        output: ret_ty,
+                        span: Span::from_begin_end(span_start, sig_span_end)
+                    },
+                    body: None
+                }
+            ),
+            ident,
+            span: Span::from_begin_end(span_start, self.previous().span)
+        })
+    }
+
+    pub fn parse_fn_arg(&mut self) -> Result<FnInput, ParserError> {
+        let attributes = self.parse_attributes()?;
+        let span_start = self.previous().span;
+
+        // Special case: self
+        if self.try_match(TokenKind::LSelf) {
+            return Ok(
+                FnInput {
+                    attributes,
+                    id: self.node_id(),
+                    span: self.previous().span,
+                    pat: Pat {
+                        id: self.node_id(),
+                        kind: PatKind::SelfPat,
+                        span: self.previous().span
+                    },
+                    ty: Ty {
+                        id: self.node_id(),
+                        kind: TyKind::SelfTy,
+                        span: self.previous().span
+                    }
+                }
+            )
+        }
+
+        let pat = self.parse_pattern()?;
+        self.consume(TokenKind::Colon)?;
+        let ty = self.parse_ty()?;
+
+        Ok(FnInput {
+            attributes,
+            id: self.node_id(),
+            span: Span::from_begin_end(span_start, self.previous().span),
+            pat,
+            ty 
+        })
+    }
+
+    pub fn parse_pattern(&mut self) -> Result<Pat, ParserError> {
+        // TODO: Add more patterns
+        if let Ok(token) = self.consume(TokenKind::Ident) {
+            let token = token.clone();
+            return Ok(
+                Pat {
+                    id: self.node_id(),
+                    kind: PatKind::Ident(self.ident(&token)),
+                    span: token.span
+                }
+            )
+        }
+        unimplemented!("Only ident patterns are available")
+    }
+
+    pub fn parse_ty(&mut self) -> Result<Ty, ParserError> {
+        let span_start = self.previous().span;
+        // Void / Tuple
+        if self.try_match(TokenKind::LeftParen) {
+            if self.try_match(TokenKind::RightParen) {
+                return Ok(Ty {
+                    id: self.node_id(),
+                    kind: TyKind::Void,
+                    span: Span::from_begin_end(span_start, self.previous().span)
+                });
+            }
+            unimplemented!("Tuple type is not yet supported")
+        }
+
+        // Never type
+        if self.try_match(TokenKind::Bang) {
+            return Ok(Ty {
+                id: self.node_id(),
+                kind: TyKind::Never,
+                span: self.previous().span
+            });
+        }
+
+        // Path type
+        let path = self.parse_path()?;
+        let path_span = path.span;
+        Ok(Ty {
+            id: self.node_id(),
+            kind: TyKind::Path(path),
+            span: path_span
+        })
+    }
+
+    pub fn parse_path(&mut self) -> Result<Path, ParserError> {
+        let mut segments = Vec::new();
+        let span_start = self.previous().span;
+
+        loop {
+            let segment = self.parse_path_segment()?;
+            segments.push(segment);
+            if !self.try_match(TokenKind::DColon) {
+                break;
+            }
+        }
+
+        Ok(Path {
+            segments,
+            span: Span::from_begin_end(span_start, self.previous().span)
+        })
+    }
+
+    pub fn parse_path_segment(&mut self) -> Result<PathSegment, ParserError> {
+        let ident = self.expect_ident(
+            ParserError::ExpectedName {
+                target: NameTarget::Type,
+                found: self.previous().clone()
+            }
+        )?;
+
+        Ok(PathSegment { ident })
     }
 }

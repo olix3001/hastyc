@@ -131,11 +131,21 @@ impl<'a> Lexer<'a> {
             // Single or double
             ':' => try_match!(':' => DColon | Colon),
             '!' => try_match!('=' => BangEq | Bang),
-            '=' => try_match!('=' => EqualEq | Equal),
+            '=' => {
+                let tt = if self.try_match('=') { TokenKind::EqualEq }
+                else if self.try_match('>') { TokenKind::ThickArrow }
+                else { TokenKind::Equal };
+                self.add_token(tt);
+            },
             '<' => try_match!('=' => LessEq | Less),
             '>' => try_match!('=' => GreaterEq | Greater),
             '+' => try_match!('+' => Inc | Plus),
-            '-' => try_match!('-' => Dec | Minus),
+            '-' => {
+                let tt = if self.try_match('-') { TokenKind::Dec }
+                else if self.try_match('>') { TokenKind::ThinArrow }
+                else { TokenKind::Minus };
+                self.add_token(tt);
+            },
             '&' => try_match!('&' => And | Ampersand),
             '|' => try_match!('|' => Or | Pipe),
 
