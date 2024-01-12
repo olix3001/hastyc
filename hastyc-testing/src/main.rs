@@ -8,8 +8,11 @@ const CODE: &str = "
 import hello::world;
 
 pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
+    import inline::test;
     let a;
-    let b;
+    fn b() {
+        let x;
+    }
     let c;
 }
 ";
