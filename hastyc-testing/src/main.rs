@@ -8,7 +8,9 @@ const CODE: &str = "
 import hello::world;
 
 pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
-
+    let a;
+    let b;
+    let c;
 }
 ";
 

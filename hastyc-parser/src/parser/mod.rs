@@ -416,8 +416,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
         // Body
         // Temporary
-        self.consume(TokenKind::LeftBrace)?;
-        self.consume(TokenKind::RightBrace)?;
+        let block = self.parse_block()?;
 
         // Return
         Ok(Item {
@@ -434,7 +433,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
                         output: ret_ty,
                         span: Span::from_begin_end(span_start, sig_span_end)
                     },
-                    body: None
+                    body: Some(Box::new(block))
                 }
             ),
             ident,
@@ -555,5 +554,107 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         )?;
 
         Ok(PathSegment { ident })
+    }
+    
+    pub fn parse_block(&mut self) -> Result<Block, ParserError> {
+        let span_start = self.previous().span;
+
+        self.consume(TokenKind::LeftBrace)?;
+        let mut stmts = Vec::new();
+
+        loop {
+            if self.try_match(TokenKind::RightBrace) {
+                break;
+            }
+            // TODO: Check is at end
+
+            let stmt = self.parse_stmt()?;
+            stmts.push(stmt);
+        }
+
+        Ok(Block {
+            stmts: StmtStream::from_vec(stmts),
+            id: self.node_id(),
+            span: Span::from_begin_end(span_start, self.previous().span)
+        })
+    }
+
+    pub fn parse_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let span_start = self.previous().span;
+        // First: Let binding
+        let attrib = self.parse_attributes();
+        if self.try_match(TokenKind::Let) {
+            let mut kind = StmtKind::LetBinding(Box::new(self.parse_let_binding()?));
+            if let Ok(attrib) = attrib {
+                let StmtKind::LetBinding(ref mut lb) = kind else { unreachable!() };
+                lb.attribs = attrib;
+            }
+            
+            self.consume(TokenKind::Semi)?;
+
+            return Ok(Stmt {
+                id: self.node_id(),
+                kind,
+                span: Span::from_begin_end(span_start, self.previous().span)
+            })   
+        } else {
+            match self.parse_item() {
+                Ok(item) => {
+                    let kind = StmtKind::Item(Box::new(item));
+                    return Ok(Stmt {
+                        id: self.node_id(),
+                        kind,
+                        span: Span::from_begin_end(span_start, self.previous().span)
+                    });
+                },
+                Err(ParserError::ExpectedItem { .. }) => { /* ignore and check next */},
+                Err(err) => return Err(err) 
+            }
+
+            // This is neither let binding nor an item.
+            let expr = self.parse_expr()?;
+            let kind = if self.try_match(TokenKind::Semi) {
+                StmtKind::Expr(Box::new(expr))
+            } else {
+                StmtKind::ExprNS(Box::new(expr))
+            };
+
+            Ok(Stmt {
+                id: self.node_id(),
+                kind,
+                span: Span::from_begin_end(span_start, self.previous().span)
+            })
+        }
+    }
+
+    pub fn parse_let_binding(&mut self) -> Result<LetBinding, ParserError> {
+        let span_start = self.previous().span;
+        let pat = self.parse_pattern()?;
+        let ty = if self.try_match(TokenKind::Colon) {
+            self.parse_ty()?
+        } else { Ty {
+            id: self.node_id(),
+            kind: TyKind::Infer,
+            span: self.previous().span
+        } };
+
+        let kind = if self.try_match(TokenKind::Equal) {
+            LetBindingKind::Init(Box::new(self.parse_expr()?))
+        } else {
+            LetBindingKind::Decl
+        };
+
+        Ok(LetBinding {
+            id: self.node_id(),
+            pat,
+            ty: Some(ty),
+            kind,
+            span: Span::from_begin_end(span_start, self.previous().span),
+            attribs: Attributes::empty()
+        })
+    }
+
+    pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+        unimplemented!("Expressions are not yet implemented");
     }
 }

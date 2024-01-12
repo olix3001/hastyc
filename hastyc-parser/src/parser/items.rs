@@ -246,6 +246,8 @@ pub enum TyKind {
     Void,
     /// Something with an infinite loop that should NEVER return.
     Never,
+    /// Unkown type, should be infered.
+    Infer
 }
 
 /// A pattern.

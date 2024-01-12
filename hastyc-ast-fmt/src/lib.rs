@@ -1,5 +1,5 @@
 use hastyc_common::{identifiers::Ident, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -75,6 +75,7 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                 self.push_line(&format!("Function {}:", self.ident(&item.ident)));
                 self.pushi();
                 self.function_signature(&function.signature);
+                self.block(function.body.as_ref().unwrap());
                 self.popi();
             }
         }
@@ -150,7 +151,48 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
             TyKind::SelfTy => "self".to_string(),
             TyKind::Void => "void".to_string(),
             TyKind::Never => "never".to_string(),
-            TyKind::Path(ref path) => self.path(path)
+            TyKind::Path(ref path) => self.path(path),
+            TyKind::Infer => "<infer>".to_string()
         }
+    }
+
+    fn block(&mut self, block: &Block) {
+        self.push_line("Block: {");
+        self.pushi();
+
+        for ref stmt in block.stmts.stmts.iter() {
+            self.stmt(stmt);
+        }
+
+        self.popi();
+        self.push_line("}");
+    }
+
+    fn stmt(&mut self, stmt: &Stmt) {
+        match stmt.kind {
+            StmtKind::LetBinding(ref let_binding) => {
+                match let_binding.kind {
+                    LetBindingKind::Decl => self.push_line(&format!(
+                        "let {}: {};",
+                        self.pat(&let_binding.pat),
+                        self.ty(let_binding.ty.as_ref().unwrap())
+                    )),
+                    LetBindingKind::Init(ref init) => self.push_line(&format!(
+                        "let {}: {} = {};",
+                        self.pat(&let_binding.pat),
+                        self.ty(let_binding.ty.as_ref().unwrap()),
+                        self.expr(&init)
+                    ))
+                }
+            },
+            StmtKind::Item(ref item) => {
+                self.item(item)
+            },
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn expr(&self, expr: &Expr) -> String {
+        unimplemented!()
     }
 }

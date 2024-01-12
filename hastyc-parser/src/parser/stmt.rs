@@ -1,6 +1,6 @@
 use hastyc_common::{identifiers::ASTNodeID, span::Span};
 
-use super::{Attributes, Item};
+use super::{Attributes, Item, Pat, Ty};
 
 /// Stream of statements. This is like a part of code.
 #[derive(Debug, Clone)]
@@ -12,6 +12,12 @@ impl StmtStream {
     pub fn empty() -> Self {
         Self {
             stmts: Vec::new()
+        }
+    }
+
+    pub fn from_vec(v: Vec<Stmt>) -> Self {
+        Self {
+            stmts: v
         }
     }
 }
@@ -37,8 +43,9 @@ pub struct Expr {
 /// Kind of statement
 #[derive(Debug, Clone)]
 pub enum StmtKind {
-    // TODO: Let binding
-    Item(Item),
+    /// Let statement like `let _: _ = _;`.
+    LetBinding(Box<LetBinding>),
+    Item(Box<Item>),
     /// Expression followed by a semicolon.
     Expr(Box<Expr>),
     /// Expression without semicolon.
@@ -49,4 +56,22 @@ pub enum StmtKind {
 #[derive(Debug, Clone)]
 pub enum ExprKind {
 
+}
+
+#[derive(Debug, Clone)]
+pub struct LetBinding {
+    pub id: ASTNodeID,
+    pub pat: Pat,
+    pub ty: Option<Ty>,
+    pub kind: LetBindingKind,
+    pub span: Span,
+    pub attribs: Attributes
+}
+
+#[derive(Debug, Clone)]
+pub enum LetBindingKind {
+    /// Just variable declaration `let variable;`
+    Decl,
+    /// Variable declaration with assignment `let variable = value;`
+    Init(Box<Expr>)
 }
