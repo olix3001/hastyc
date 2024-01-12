@@ -127,6 +127,7 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
         }
         if sig.inputs.len() > 0 {
             string.pop();
+            string.pop();
         }
         string.push(')');
 
