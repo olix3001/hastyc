@@ -655,6 +655,16 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
-        unimplemented!("Expressions are not yet implemented");
+        let span_start = self.previous().span;
+        let kind = if let Ok(path) = self.parse_path() {
+            ExprKind::Path(path)
+        } else { unimplemented!() };
+
+        Ok(Expr {
+            id: self.node_id(),
+            kind,
+            span: Span::from_begin_end(span_start, self.previous().span),
+            attrs: Attributes::empty() // TODO?
+        })
     }
 }

@@ -1,4 +1,4 @@
-use hastyc_common::{identifiers::ASTNodeID, span::Span};
+use hastyc_common::{identifiers::ASTNodeID, span::Span, path::Path};
 
 use super::{Attributes, Item, Pat, Ty};
 
@@ -55,7 +55,7 @@ pub enum StmtKind {
 /// Kind of expression
 #[derive(Debug, Clone)]
 pub enum ExprKind {
-
+    Path(Path)
 }
 
 #[derive(Debug, Clone)]

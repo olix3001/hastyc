@@ -1,5 +1,5 @@
 use hastyc_common::{identifiers::Ident, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr, ExprKind};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -196,6 +196,9 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
     }
 
     pub fn expr(&self, expr: &Expr) -> String {
-        unimplemented!()
+        match expr.kind {
+            ExprKind::Path(ref path) => format!("Path({})", self.path(path)),
+            _ => todo!()
+        }
     }
 }
