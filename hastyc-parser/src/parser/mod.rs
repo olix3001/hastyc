@@ -755,6 +755,14 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
     fn expr_primary(&mut self) -> Result<Expr, ParserError> {
         let span_start = self.previous().span;
+
+        // Grouping
+        if self.try_match(TokenKind::LeftParen) {
+            let expr = self.parse_expr()?;
+            self.consume(TokenKind::RightParen)?;
+            return Ok(expr);
+        }
+
         // Path expr
         let kind = if let Ok(path) = self.parse_path() {
             ExprKind::Path(path)
