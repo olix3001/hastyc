@@ -5,7 +5,7 @@ pub use items::*;
 pub use stmt::*;
 use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, Ident, ASTNodeID}, span::Span, path::{Path, PathSegment}};
 
-use crate::lexer::{TokenStream, Token, TokenKind};
+use crate::lexer::{TokenStream, Token, TokenKind, LiteralKind};
 
 use log::{debug, trace};
 
@@ -14,7 +14,7 @@ pub struct Parser<'pkg, 'a> {
     tokens: &'a TokenStream,
     current: usize,
     symbol_storage: SymbolStorage,
-    source_file: Option<&'a SourceFile>
+    source_file: &'a SourceFile
 }
 
 #[derive(Debug)]
@@ -38,7 +38,8 @@ pub enum NameTarget {
     Import,
     Attribute,
     Fn,
-    Type
+    Type,
+    Field
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
@@ -67,15 +68,11 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     fn ident(&mut self, token: &Token) -> Ident {
-        if let Some(ref source_file) = self.source_file {
-            let token_text = source_file.get_span(&token.span);
-            Ident::new(
-                self.symbol_storage.get_or_register(&token_text),
-                token.span.clone()
-            )
-        } else {
-            unimplemented!("Source code is unknown")
-        }
+        let token_text = self.source_file.get_span(&token.span);
+        Ident::new(
+            self.symbol_storage.get_or_register(&token_text),
+            token.span.clone()
+        )
     }
 
     fn expect_ident(&mut self, err: ParserError) -> Result<Ident, ParserError> {
@@ -159,7 +156,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             tokens: token_stream,
             current: 0,
             symbol_storage: SymbolStorage::new(),
-            source_file: Some(root_file),
+            source_file: root_file,
             package: pkg,
         };
         let mut items = Vec::new();
@@ -656,9 +653,33 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         let span_start = self.previous().span;
-        let kind = if let Ok(path) = self.parse_path() {
+        let mut kind = if let Ok(path) = self.parse_path() {
             ExprKind::Path(path)
+        } else if let Ok(lit) = self.parse_lit() {
+            ExprKind::Literal(lit)
         } else { unimplemented!() };
+
+        // Field access is a bit f..ked up
+        while self.try_match(TokenKind::Dot) {
+            let ident = if self.try_match(TokenKind::Literal { 
+                kind: LiteralKind::Int { base: crate::lexer::Base::Decimal } 
+            }) {
+                self.ident(&self.previous().clone())
+            } else {
+                self.expect_ident(ParserError::ExpectedName {
+                    target: NameTarget::Field, found: self.previous().clone()
+                })?
+            };
+
+            kind = ExprKind::Field(Box::new(
+                Expr {
+                    id: self.node_id(),
+                    kind,
+                    span: Span::from_begin_end(span_start, self.previous().span),
+                    attrs: Attributes::empty()
+                }
+            ), ident);
+        }
 
         Ok(Expr {
             id: self.node_id(),
@@ -666,5 +687,35 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             span: Span::from_begin_end(span_start, self.previous().span),
             attrs: Attributes::empty() // TODO?
         })
+    }
+
+    /// Try to parse literal
+    pub fn parse_lit(&mut self) -> Result<Lit, ParserError> {
+        if let TokenKind::Literal { .. } = self.peek().kind {
+            let token = self.advance();
+            let TokenKind::Literal { kind } = token.kind else { unreachable!() };
+            
+            let lit_kind = match kind { // TODO: Fix bases
+                LiteralKind::Int { base: _base } => LitKind::Integer,
+                LiteralKind::Float { has_exponent: _has_exponent } => LitKind::Float,
+                LiteralKind::Str => LitKind::String,
+                LiteralKind::Char => LitKind::Char,
+                _ => unreachable!() // Any cannot be produced by the lexer
+            };
+
+            let t_span = token.span; // For borrow checker satisfaction
+            Ok(Lit {
+                id: self.node_id(),
+                kind: lit_kind,
+                symbol: self.symbol_storage.get_or_register(
+                    &self.source_file.get_span(&t_span)
+                )
+            })
+        } else {
+            Err(ParserError::ExpectedToken { 
+                expected: TokenKind::Literal 
+                    { kind: crate::lexer::LiteralKind::Any },
+                found: self.safe_peek().clone() })
+        }
     }
 }

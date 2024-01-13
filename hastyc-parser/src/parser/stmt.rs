@@ -1,4 +1,4 @@
-use hastyc_common::{identifiers::ASTNodeID, span::Span, path::Path};
+use hastyc_common::{identifiers::{ASTNodeID, Symbol, Ident}, span::Span, path::Path};
 
 use super::{Attributes, Item, Pat, Ty};
 
@@ -55,7 +55,10 @@ pub enum StmtKind {
 /// Kind of expression
 #[derive(Debug, Clone)]
 pub enum ExprKind {
-    Path(Path)
+    Path(Path),
+    Literal(Lit),
+    /// Field access like `value.field`
+    Field(Box<Expr>, Ident)
 }
 
 #[derive(Debug, Clone)]
@@ -74,4 +77,20 @@ pub enum LetBindingKind {
     Decl,
     /// Variable declaration with assignment `let variable = value;`
     Init(Box<Expr>)
+}
+
+#[derive(Debug, Clone)]
+pub struct Lit {
+    pub id: ASTNodeID,
+    pub kind: LitKind,
+    pub symbol: Symbol
+}
+
+#[derive(Debug, Clone)]
+pub enum LitKind {
+    Bool,
+    Char,
+    Integer,
+    Float,
+    String
 }

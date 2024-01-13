@@ -1,5 +1,5 @@
-use hastyc_common::{identifiers::Ident, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr, ExprKind};
+use hastyc_common::{identifiers::{Ident, Symbol}, path::Path};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr, ExprKind, Lit, LitKind};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -25,6 +25,9 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
 
     fn ident(&self, ident: &Ident) -> &str {
         self.pkg.symbol_storage.text_of(ident.symbol).unwrap()
+    }
+    fn symbol(&self, symbol: &Symbol) -> &str {
+        self.pkg.symbol_storage.text_of(symbol.clone()).unwrap()
     }
 
     pub fn pretty_print(package: &'pkg Package) -> String {
@@ -198,7 +201,24 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
     pub fn expr(&self, expr: &Expr) -> String {
         match expr.kind {
             ExprKind::Path(ref path) => format!("Path({})", self.path(path)),
+            ExprKind::Literal(ref lit) => self.lit(lit),
+            ExprKind::Field(ref expr, ref field) => format!("{}.{}", self.expr(expr), self.ident(field)),
             _ => todo!()
         }
+    }
+
+    pub fn lit(&self, lit: &Lit) -> String {
+        let mut string = String::from("Lit<");
+        string.push_str(match lit.kind {
+            LitKind::Bool => "bool",
+            LitKind::Char => "char",
+            LitKind::Float => "float",
+            LitKind::Integer => "int",
+            LitKind::String => "str"
+        });
+        string.push_str(">(");
+        string.push_str(self.symbol(&lit.symbol));
+        string.push(')');
+        string
     }
 }

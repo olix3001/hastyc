@@ -13,8 +13,8 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
     fn b() {
         let x;
     }
-    let c;
-    let hello = a;
+    let c = 5.method;
+    let hello = a.b.c_d;
 }
 ";
 

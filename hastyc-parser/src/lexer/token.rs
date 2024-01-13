@@ -92,7 +92,8 @@ pub enum LiteralKind {
         has_exponent: bool
     },
     Char,
-    Str
+    Str,
+    Any // Useful for error reporting
 }
 
 /// Numeric base of integer literal.
