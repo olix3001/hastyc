@@ -13,8 +13,11 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
     fn b() {
         let x;
     }
+    let typed: i32 = 1;
     let c = 5.method;
     let hello = a.b.c_d;
+    let bruh = -4;
+    let binary_bruh = -bruh + 1;
 }
 ";
 

@@ -58,7 +58,25 @@ pub enum ExprKind {
     Path(Path),
     Literal(Lit),
     /// Field access like `value.field`
-    Field(Box<Expr>, Ident)
+    Field(Box<Expr>, Ident),
+    Unary(UnOpKind, Box<Expr>),
+    Binary(BinOp, Box<Expr>, Box<Expr>)
+}
+
+#[derive(Debug, Clone)]
+pub enum UnOpKind {
+    Neg,
+    Not
+}
+
+pub type BinOp = Spanned<BinOpKind>;
+#[derive(Debug, Clone)]
+pub enum BinOpKind {
+    Add, Sub, Mul,
+    Div, Rem, And,
+    Or, BitAnd, BitXor,
+    BitOr, Shl, Shr,
+    Eq, Lt, Le, Ne, Ge, Gt
 }
 
 #[derive(Debug, Clone)]
@@ -94,3 +112,26 @@ pub enum LitKind {
     Float,
     String
 }
+
+#[derive(Debug, Clone)]
+pub struct Spanned<Kind> {
+    pub kind: Kind,
+    pub span: Span
+}
+
+impl<Kind> Spanned<Kind> {
+    pub fn new(kind: Kind, span: Span) -> Self {
+        Self {
+            kind,
+            span
+        }
+    }
+}
+
+pub trait MakeSpanned where Self: Sized {
+    fn spanned(self, span: Span) -> Spanned<Self> {
+        Spanned { kind: self, span: span }
+    }
+}
+
+impl<Kind> MakeSpanned for Kind {}

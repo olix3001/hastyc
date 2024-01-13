@@ -9,6 +9,43 @@ use crate::lexer::{TokenStream, Token, TokenKind, LiteralKind};
 
 use log::{debug, trace};
 
+macro_rules! basic_binary_expression_impl {
+    ($(for $name:ident use $fun:ident where $($kind:ident => $ty:ident),+);+;) => {
+        $(
+            fn $name(&mut self) -> Result<Expr, ParserError> {
+                let span_start = self.previous().span;
+                let lhs = self.$fun()?;
+                let mut kind = lhs.kind;
+                
+                while $(self.try_match(TokenKind::$kind))||* {
+                    let op_kind = self.previous().kind;
+                    let rhs = self.$fun()?;
+                    kind = ExprKind::Binary(
+                        match op_kind {
+                            $(TokenKind::$kind => BinOpKind::$ty),+,
+                            _ => { unreachable!() }
+                        }.spanned(self.previous().span),
+                        Box::new(Expr {
+                            id: self.node_id(),
+                            kind,
+                            span: lhs.span,
+                            attrs: Attributes::empty()
+                        }),
+                        Box::new(rhs)
+                    )    
+                }
+
+                Ok(Expr {
+                    id: self.node_id(),
+                    kind,
+                    span: Span::from_begin_end(span_start, self.previous().span),
+                    attrs: Attributes::empty()
+                })
+            }
+        )+
+    };
+}
+
 pub struct Parser<'pkg, 'a> {
     package: &'pkg Package,
     tokens: &'a TokenStream,
@@ -652,40 +689,84 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+        self.expr_logic_or()
+    }
+
+    basic_binary_expression_impl!(
+        for expr_logic_or use expr_logic_and where Or => Or;
+        for expr_logic_and use expr_equality where And => And;
+        for expr_equality use expr_comparison where
+            EqualEq => Eq, BangEq => Ne;
+        for expr_comparison use expr_term where
+            Greater => Gt, GreaterEq => Ge,
+            Less => Lt, LessEq => Le;
+        for expr_term use expr_factor where
+            Plus => Add, Minus => Sub;
+        for expr_factor use expr_unary where
+            Slash => Div, Star => Mul;
+    );
+
+    fn expr_unary(&mut self) -> Result<Expr, ParserError> {
+        if self.try_match(TokenKind::Bang) || self.try_match(TokenKind::Minus) {
+            let token_span = self.previous().span;
+            let op_kind = self.previous().kind;
+            let right = self.expr_unary()?;
+            let right_span = right.span;
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Unary(
+                    match op_kind {
+                        TokenKind::Bang => UnOpKind::Not,
+                        TokenKind::Minus => UnOpKind::Neg,
+                        _ => unreachable!("Unary wtf: {:?}", op_kind)
+                    },
+                    Box::new(right)
+                ),
+                span: Span::from_begin_end(token_span, right_span),
+                attrs: Attributes::empty()
+            })
+        }
+
+        self.expr_field_access()
+    }
+
+    fn expr_field_access(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.expr_primary()?;
+
+        while self.try_match(TokenKind::Dot) {
+            let ident = self.expect_ident(
+                ParserError::ExpectedName {
+                    target: NameTarget::Field,
+                    found: self.safe_peek().clone()
+                }
+            )?;
+
+            let ident_span = ident.span;
+            expr = Expr {
+                id: self.node_id(),
+                kind: ExprKind::Field(Box::new(expr), ident),
+                span: ident_span,
+                attrs: Attributes::empty()
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn expr_primary(&mut self) -> Result<Expr, ParserError> {
         let span_start = self.previous().span;
-        let mut kind = if let Ok(path) = self.parse_path() {
+        // Path expr
+        let kind = if let Ok(path) = self.parse_path() {
             ExprKind::Path(path)
         } else if let Ok(lit) = self.parse_lit() {
             ExprKind::Literal(lit)
-        } else { unimplemented!() };
-
-        // Field access is a bit f..ked up
-        while self.try_match(TokenKind::Dot) {
-            let ident = if self.try_match(TokenKind::Literal { 
-                kind: LiteralKind::Int { base: crate::lexer::Base::Decimal } 
-            }) {
-                self.ident(&self.previous().clone())
-            } else {
-                self.expect_ident(ParserError::ExpectedName {
-                    target: NameTarget::Field, found: self.previous().clone()
-                })?
-            };
-
-            kind = ExprKind::Field(Box::new(
-                Expr {
-                    id: self.node_id(),
-                    kind,
-                    span: Span::from_begin_end(span_start, self.previous().span),
-                    attrs: Attributes::empty()
-                }
-            ), ident);
-        }
+        } else { unimplemented!("Only path and literal expressions are implemented, found token: {:?}", self.safe_peek()) };
 
         Ok(Expr {
             id: self.node_id(),
             kind,
             span: Span::from_begin_end(span_start, self.previous().span),
-            attrs: Attributes::empty() // TODO?
+            attrs: Attributes::empty()
         })
     }
 
