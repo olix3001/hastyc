@@ -206,7 +206,8 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
             ExprKind::Unary(ref unop, ref expr) => format!("Unary<{:?}>({})", unop, self.expr(expr)),
             ExprKind::Binary(ref binop, ref expr1, ref expr2) =>
                 format!("Binary<{:?}>({}; {})", binop.kind, self.expr(expr1), self.expr(expr2)),
-            _ => todo!()
+            ExprKind::Call(ref target, ref args) =>
+                format!("Call<{}>({})", self.expr(target), args.iter().map(|a| self.expr(a)).collect::<Vec<String>>().join(", "))
         }
     }
 

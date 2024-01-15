@@ -60,7 +60,8 @@ pub enum ExprKind {
     /// Field access like `value.field`
     Field(Box<Expr>, Ident),
     Unary(UnOpKind, Box<Expr>),
-    Binary(BinOp, Box<Expr>, Box<Expr>)
+    Binary(BinOp, Box<Expr>, Box<Expr>),
+    Call(Box<Expr>, Vec<Box<Expr>>)
 }
 
 #[derive(Debug, Clone)]

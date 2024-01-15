@@ -718,7 +718,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
                     match op_kind {
                         TokenKind::Bang => UnOpKind::Not,
                         TokenKind::Minus => UnOpKind::Neg,
-                        _ => unreachable!("Unary wtf: {:?}", op_kind)
+                        _ => unreachable!()
                     },
                     Box::new(right)
                 ),
@@ -727,7 +727,34 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             })
         }
 
-        self.expr_field_access()
+        self.expr_call()
+    }
+
+    fn expr_call(&mut self) -> Result<Expr, ParserError> {
+        let expr = self.expr_field_access()?;
+
+        if self.try_match(TokenKind::LeftParen) {
+            let args_start = self.previous().span;
+            // Argument list
+            let mut args = Vec::new();
+            while !self.try_match(TokenKind::RightParen) {
+                let arg_expr = self.parse_expr()?;
+                args.push(Box::new(arg_expr));
+                if !self.try_match(TokenKind::Comma) {
+                    self.consume(TokenKind::RightParen)?;
+                    break;
+                }
+            }
+
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Call(Box::new(expr), args),
+                span: Span::from_begin_end(args_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
+        Ok(expr)
     }
 
     fn expr_field_access(&mut self) -> Result<Expr, ParserError> {

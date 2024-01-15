@@ -18,6 +18,9 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
     let hello = a.b.c_d;
     let bruh = -4;
     let binary_bruh = -bruh + (1 - 2);
+    let comparison: bool = bruh >= binary_bruh;
+    let function_call = hello_world(1, 2, bruh, 3 + 1);
+    let method_call = object.method();
 }
 ";
 
