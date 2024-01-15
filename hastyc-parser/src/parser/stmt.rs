@@ -1,6 +1,6 @@
 use hastyc_common::{identifiers::{ASTNodeID, Symbol, Ident}, span::Span, path::Path};
 
-use super::{Attributes, Item, Pat, Ty};
+use super::{Attributes, Item, Pat, Ty, Block};
 
 /// Stream of statements. This is like a part of code.
 #[derive(Debug, Clone)]
@@ -61,7 +61,10 @@ pub enum ExprKind {
     Field(Box<Expr>, Ident),
     Unary(UnOpKind, Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
-    Call(Box<Expr>, Vec<Box<Expr>>)
+    Call(Box<Expr>, Vec<Box<Expr>>),
+    /// if expr {block} else {block}
+    If(Box<Expr>, Box<Block>, Option<Box<Expr>>),
+    Block(Box<Block>)
 }
 
 #[derive(Debug, Clone)]

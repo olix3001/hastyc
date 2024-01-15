@@ -21,6 +21,17 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
     let comparison: bool = bruh >= binary_bruh;
     let function_call = hello_world(1, 2, bruh, 3 + 1);
     let method_call = object.method();
+
+    {
+        let a = 1;
+    }
+
+    if bruh == -4 {
+        let conditional = 1;
+        conditional
+    } else {
+        1 + 2
+    }
 }
 ";
 

@@ -146,6 +146,10 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         self.previous()
     }
 
+    fn unwind_one(&mut self) {
+        self.current -= 1;
+    }
+
     fn check(&self, tk: TokenKind) -> bool {
         if self.is_at_end() { return false; }
         self.peek().kind == tk
@@ -259,6 +263,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             TokenKind::Import => self.parse_import()?,
             TokenKind::Fn => self.parse_fn()?,
             _ => {
+                self.unwind_one();
                 Err(
                     ParserError::ExpectedItem {
                         found: self.previous().clone()
@@ -689,6 +694,44 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+        self.expr_block()
+    }
+
+    fn expr_block(&mut self) -> Result<Expr, ParserError> {
+        if self.check(TokenKind::LeftBrace) {
+            let block = self.parse_block()?;
+            let span = block.span;
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Block(Box::new(block)),
+                span,
+                attrs: Attributes::empty()
+            });
+        }
+        self.expr_if()
+    }
+
+    fn expr_if(&mut self) -> Result<Expr, ParserError> {
+        if self.try_match(TokenKind::If) {
+            let span_start = self.previous().span;
+            let condition = self.parse_expr()?;
+            let block = self.parse_block()?;
+            let else_expr = if self.try_match(TokenKind::Else) {
+                Some(Box::new(self.parse_expr()?))
+            } else { None };
+
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::If(
+                    Box::new(condition),
+                    Box::new(block),
+                    else_expr
+                ),
+                span: Span::from_begin_end(span_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
         self.expr_logic_or()
     }
 

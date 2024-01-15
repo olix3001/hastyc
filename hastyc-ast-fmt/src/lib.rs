@@ -8,6 +8,18 @@ pub struct PackageASTPrettyPrinter<'pkg> {
 }
 
 impl<'pkg> PackageASTPrettyPrinter<'pkg> {
+    fn subformatter(&self) -> Self {
+        Self {
+            result: String::new(),
+            indent: self.indent,
+            pkg: self.pkg
+        }
+    }
+
+    fn into_text(self) -> String {
+        self.result
+    }
+
     fn pushi(&mut self) {
         self.indent += 1;
     }
@@ -163,7 +175,7 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
     }
 
     fn block(&mut self, block: &Block) {
-        self.push_line("Block: {");
+        self.push_line("{");
         self.pushi();
 
         for ref stmt in block.stmts.stmts.iter() {
@@ -194,7 +206,8 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
             StmtKind::Item(ref item) => {
                 self.item(item)
             },
-            _ => unimplemented!()
+            StmtKind::Expr(ref expr) => self.push_line(&format!("{};", self.expr(expr))),
+            StmtKind::ExprNS(ref expr) => self.push_line(&self.expr(expr)),
         }
     }
 
@@ -207,7 +220,23 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
             ExprKind::Binary(ref binop, ref expr1, ref expr2) =>
                 format!("Binary<{:?}>({}; {})", binop.kind, self.expr(expr1), self.expr(expr2)),
             ExprKind::Call(ref target, ref args) =>
-                format!("Call<{}>({})", self.expr(target), args.iter().map(|a| self.expr(a)).collect::<Vec<String>>().join(", "))
+                format!("Call<{}>({})", self.expr(target), args.iter().map(|a| self.expr(a)).collect::<Vec<String>>().join(", ")),
+            ExprKind::Block(ref block) => { let mut sf = self.subformatter(); sf.block(block); format!("\n{}\n", sf.into_text()) },
+            ExprKind::If(ref condition, ref block, ref else_expr) =>
+                {
+                    let mut if_block = self.subformatter();
+                    if_block.block(block);
+                    let if_block = if_block.into_text();
+                    if else_expr.is_some() {
+                        format!("if ({})\n{}{}else {}",
+                        self.expr(condition),
+                        if_block,
+                        "    ".repeat(self.indent),
+                        self.expr(else_expr.as_ref().unwrap()))
+                    } else {
+                        format!("if ({}) {}", self.expr(condition), if_block)
+                    }
+                }
         }
     }
 
