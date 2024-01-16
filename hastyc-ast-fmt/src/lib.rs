@@ -185,6 +185,11 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
         self.popi();
         self.push_line("}");
     }
+    fn block_str(&self, block: &Block) -> String {
+        let mut b = self.subformatter();
+        b.block(block);
+        b.into_text()
+    }
 
     fn stmt(&mut self, stmt: &Stmt) {
         match stmt.kind {
@@ -234,9 +239,14 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                         "    ".repeat(self.indent),
                         self.expr(else_expr.as_ref().unwrap()))
                     } else {
-                        format!("if ({}) {}", self.expr(condition), if_block)
+                        format!("if ({})\n{}", self.expr(condition), if_block)
                     }
-                }
+                },
+            ExprKind::Loop(ref block) => format!("loop \n{}", self.block_str(block)),
+            ExprKind::While(ref condition, ref block) => 
+                format!("while ({})\n{}", self.expr(condition), self.block_str(block)),
+            ExprKind::Assign(ref target, ref value) =>
+                format!("Assign({} = {})", self.expr(target), self.expr(value))
         }
     }
 

@@ -32,6 +32,14 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
     } else {
         1 + 2
     }
+
+    loop {
+        let a = 1;
+    }
+
+    while bruh > 1 {
+        bruh = bruh + 1;
+    }
 }
 ";
 

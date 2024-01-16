@@ -59,12 +59,15 @@ pub enum ExprKind {
     Literal(Lit),
     /// Field access like `value.field`
     Field(Box<Expr>, Ident),
+    Assign(Box<Expr>, Box<Expr>),
     Unary(UnOpKind, Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
     Call(Box<Expr>, Vec<Box<Expr>>),
     /// if expr {block} else {block}
     If(Box<Expr>, Box<Block>, Option<Box<Expr>>),
-    Block(Box<Block>)
+    Block(Box<Block>),
+    Loop(Box<Block>),
+    While(Box<Expr>, Box<Block>)
 }
 
 #[derive(Debug, Clone)]

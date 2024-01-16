@@ -732,6 +732,35 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             })
         }
 
+        self.expr_loop()
+    }
+
+    fn expr_loop(&mut self) -> Result<Expr, ParserError> {
+        if self.try_match(TokenKind::Loop) {
+            let span_start = self.previous().span;
+            let block = self.parse_block()?;
+
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Loop(Box::new(block)),
+                span: Span::from_begin_end(span_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
+        if self.try_match(TokenKind::While) {
+            let span_start = self.previous().span;
+            let condition = self.parse_expr()?;
+            let block = self.parse_block()?;
+
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::While(Box::new(condition), Box::new(block)),
+                span: Span::from_begin_end(span_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
         self.expr_logic_or()
     }
 
@@ -774,7 +803,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     fn expr_call(&mut self) -> Result<Expr, ParserError> {
-        let expr = self.expr_field_access()?;
+        let expr = self.expr_assignment()?;
 
         if self.try_match(TokenKind::LeftParen) {
             let args_start = self.previous().span;
@@ -798,6 +827,24 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         }
 
         Ok(expr)
+    }
+    
+    fn expr_assignment(&mut self) -> Result<Expr, ParserError> {
+        let lvalue = self.expr_field_access()?;
+
+        if self.try_match(TokenKind::Equal) {
+            let rvalue = self.parse_expr()?;
+            let span = Span::from_begin_end(lvalue.span, rvalue.span);
+
+           return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Assign(Box::new(lvalue), Box::new(rvalue)),
+                span,
+                attrs: Attributes::empty()
+            })
+        }
+
+       Ok(lvalue)
     }
 
     fn expr_field_access(&mut self) -> Result<Expr, ParserError> {
