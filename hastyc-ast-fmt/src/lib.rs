@@ -239,14 +239,18 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                         "    ".repeat(self.indent),
                         self.expr(else_expr.as_ref().unwrap()))
                     } else {
-                        format!("if ({})\n{}", self.expr(condition), if_block)
+                        format!("if ({})\n{}\n", self.expr(condition), if_block)
                     }
                 },
             ExprKind::Loop(ref block) => format!("loop \n{}", self.block_str(block)),
             ExprKind::While(ref condition, ref block) => 
-                format!("while ({})\n{}", self.expr(condition), self.block_str(block)),
+                format!("while ({})\n{}\n", self.expr(condition), self.block_str(block)),
             ExprKind::Assign(ref target, ref value) =>
-                format!("Assign({} = {})", self.expr(target), self.expr(value))
+                format!("Assign({} = {})", self.expr(target), self.expr(value)),
+            ExprKind::For(ref pat, ref expr, ref block) =>
+                format!("For ({} in {})\n{}\n", self.pat(pat), self.expr(expr), self.block_str(block)),
+            ExprKind::Continue => "Continue".to_string(),
+            ExprKind::Break(ref bvalue) => format!("Break({:?})", bvalue.as_ref().map(|v| self.expr(&v)))
         }
     }
 

@@ -67,7 +67,11 @@ pub enum ExprKind {
     If(Box<Expr>, Box<Block>, Option<Box<Expr>>),
     Block(Box<Block>),
     Loop(Box<Block>),
-    While(Box<Expr>, Box<Block>)
+    While(Box<Expr>, Box<Block>),
+    /// For <pat> in <expr> <block>
+    For(Pat, Box<Expr>, Box<Block>),
+    Break(Option<Box<Expr>>),
+    Continue
 }
 
 #[derive(Debug, Clone)]

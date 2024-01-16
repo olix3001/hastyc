@@ -761,7 +761,48 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             })
         }
 
-        self.expr_logic_or()
+        if self.try_match(TokenKind::For) {
+            let span_start = self.previous().span;
+            let pat = self.parse_pattern()?;
+            self.consume(TokenKind::In)?;
+            let expr = self.parse_expr()?;
+            let block = self.parse_block()?;
+
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::For(pat, Box::new(expr), Box::new(block)),
+                span: Span::from_begin_end(span_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
+        self.expr_break_continue()
+    }
+
+    fn expr_break_continue(&mut self) -> Result<Expr, ParserError> {
+        if self.try_match(TokenKind::Continue) {
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Continue,
+                span: self.previous().span,
+                attrs: Attributes::empty()
+            })
+        } else if self.try_match(TokenKind::Break) {
+            let span_start = self.previous().span;
+            let expr = if self.check(TokenKind::Semi) {
+                None
+            } else {
+                Some(self.parse_expr()?)
+            };
+            return Ok(Expr {
+                id: self.node_id(),
+                kind: ExprKind::Break(expr.map(|e| Box::new(e))),
+                span: Span::from_begin_end(span_start, self.previous().span),
+                attrs: Attributes::empty()
+            })
+        }
+
+        self.expr_logic_or()   
     }
 
     basic_binary_expression_impl!(

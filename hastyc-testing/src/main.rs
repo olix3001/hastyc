@@ -33,12 +33,20 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
         1 + 2
     }
 
+    let a = 1;
     loop {
-        let a = 1;
+        a = a + 1;
+        if a > 10 {
+            break;
+        }
     }
 
     while bruh > 1 {
         bruh = bruh + 1;
+    }
+
+    for test in hello.world() {
+        continue;
     }
 }
 ";
