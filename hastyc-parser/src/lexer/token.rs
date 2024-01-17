@@ -62,7 +62,7 @@ pub enum TokenKind {
     Dollar, Tilde, Question, Hash,
 
     // Two-character tokens
-    BangEq, EqualEq, LessEq, GreaterEq,
+    BangEq, EqualEq, LessEq, GreaterEq, Rest,
     And, Or, Inc, Dec, DColon, ThinArrow, ThickArrow,
 
     // Keywords

@@ -120,7 +120,6 @@ impl<'a> Lexer<'a> {
             '[' => self.add_token(TokenKind::LeftBracket),
             ']' => self.add_token(TokenKind::RightBracket),
             ',' => self.add_token(TokenKind::Comma),
-            '.' => self.add_token(TokenKind::Dot),
             ';' => self.add_token(TokenKind::Semi),
             '*' => self.add_token(TokenKind::Star),
             '%' => self.add_token(TokenKind::Percent),
@@ -131,6 +130,7 @@ impl<'a> Lexer<'a> {
             // Single or double
             ':' => try_match!(':' => DColon | Colon),
             '!' => try_match!('=' => BangEq | Bang),
+            '.' => try_match!('.' => Rest | Dot),
             '=' => {
                 let tt = if self.try_match('=') { TokenKind::EqualEq }
                 else if self.try_match('>') { TokenKind::ThickArrow }

@@ -331,7 +331,13 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
             ExprKind::For(ref pat, ref expr, ref block) =>
                 format!("For ({} in {})\n{}\n", self.pat(pat), self.expr(expr), self.block_str(block)),
             ExprKind::Continue => "Continue".to_string(),
-            ExprKind::Break(ref bvalue) => format!("Break({:?})", bvalue.as_ref().map(|v| self.expr(&v)))
+            ExprKind::Break(ref bvalue) => format!("Break({:?})", bvalue.as_ref().map(|v| self.expr(&v))),
+            ExprKind::StructLit(ref lit) => format!(
+                "StructLit({}\n{{{}\n}})",
+                self.path(&lit.path),
+                lit.fields.iter().map(|f| format!("{}: {}", self.ident(&f.ident), self.expr(&f.expr)))
+                .collect::<Vec<String>>().join(",\n")
+            )
         }
     }
 

@@ -65,6 +65,13 @@ enum Hello {
         pub world: usize
     }
 }
+
+fn test() {
+    path::to::my_struct {
+        a: 1 + 1,
+        b: function.call()
+    }
+}
 ";
 
 fn main() {

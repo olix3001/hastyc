@@ -72,7 +72,7 @@ pub enum ExprKind {
     For(Pat, Box<Expr>, Box<Block>),
     Break(Option<Box<Expr>>),
     Continue,
-    // TODO: Struct literals
+    StructLit(Box<StructLiteral>)
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +123,29 @@ pub enum LitKind {
     Integer,
     Float,
     String
+}
+
+#[derive(Debug, Clone)]
+pub struct StructLiteral {
+    pub path: Path,
+    pub fields: Vec<FieldLitExpr>,
+    pub rest: RestExpr
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldLitExpr {
+    pub attrs: Attributes,
+    pub id: ASTNodeID,
+    pub span: Span,
+    pub ident: Ident,
+    pub expr: Box<Expr>
+}
+
+#[derive(Debug, Clone)]
+pub enum RestExpr {
+    Valued(Box<Expr>),
+    Rest(Span),
+    None
 }
 
 #[derive(Debug, Clone)]

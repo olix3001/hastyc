@@ -401,8 +401,6 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
                 DataVariant::Unit
             } else { self.parse_non_unit_variant_data()? };
 
-            println!("ENUM VARIANT: {:?}", variant);
-
             variants.push(EnumVariant {
                 attrs,
                 id: self.node_id(),
@@ -1034,7 +1032,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
 
     fn expr_field_access(&mut self) -> Result<Expr, ParserError> {
-        let mut expr = self.expr_primary()?;
+        let mut expr = self.expr_struct_lit()?;
 
         while self.try_match(TokenKind::Dot) {
             let ident = self.expect_ident(
@@ -1054,6 +1052,65 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         }
 
         Ok(expr)
+    }
+
+    fn expr_struct_lit(&mut self) -> Result<Expr, ParserError> {
+        let span_start = self.safe_peek().span;
+        let path = self.expr_primary()?;
+
+        if let ExprKind::Path(..) = path.kind {
+            if self.try_match(TokenKind::LeftBrace) {
+                // Parse fields
+                let mut fields = Vec::new();
+                let mut rest = RestExpr::None;
+                while !self.check(TokenKind::RightBrace) {
+                    if self.try_match(TokenKind::Rest) {
+                        if self.check(TokenKind::RightBrace) {
+                            rest = RestExpr::Rest(self.previous().span);
+                        } else {
+                            let expr = self.parse_expr()?;
+                            rest = RestExpr::Valued(Box::new(expr));
+                        }
+                        break;
+                    }
+
+                    let field_span_start = self.safe_peek().span;
+                    let attrs = self.parse_attributes()?;
+                    let field_name = self.expect_ident(ParserError::ExpectedName {
+                        target: NameTarget::Field,
+                        found: self.safe_peek().clone()
+                    })?;
+                    self.consume(TokenKind::Colon)?;
+                    let value = self.parse_expr()?;
+
+                    fields.push(FieldLitExpr {
+                        attrs,
+                        id: self.node_id(),
+                        span: Span::from_begin_end(field_span_start, self.previous().span),
+                        ident: field_name,
+                        expr: Box::new(value)
+                    });
+
+                    if !self.try_match(TokenKind::Comma) { break; }
+                }
+                self.consume(TokenKind::RightBrace)?;
+
+                return Ok(Expr {
+                    id: self.node_id(),
+                    kind: ExprKind::StructLit(Box::new(StructLiteral {
+                        path: match path.kind {
+                            ExprKind::Path(path) => path,
+                            _ => panic!() // will this ever happen? 
+                        },
+                        fields,
+                        rest
+                    })),
+                    span: Span::from_begin_end(span_start, self.previous().span),
+                    attrs: Attributes::empty()
+                })
+            }
+        }
+        Ok(path)
     }
 
     fn expr_primary(&mut self) -> Result<Expr, ParserError> {
