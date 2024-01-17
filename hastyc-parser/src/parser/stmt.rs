@@ -71,7 +71,8 @@ pub enum ExprKind {
     /// For <pat> in <expr> <block>
     For(Pat, Box<Expr>, Box<Block>),
     Break(Option<Box<Expr>>),
-    Continue
+    Continue,
+    // TODO: Struct literals
 }
 
 #[derive(Debug, Clone)]

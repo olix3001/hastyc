@@ -1,5 +1,5 @@
 use hastyc_common::{identifiers::{Ident, Symbol}, path::Path};
-use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr, ExprKind, Lit, LitKind};
+use hastyc_parser::parser::{Package, Item, ItemKind, ItemStream, ImportTree, ImportTreeKind, Attributes, AttributeKind, FnSignature, Pat, PatKind, Ty, TyKind, FnRetTy, Block, Stmt, StmtKind, LetBindingKind, Expr, ExprKind, Lit, LitKind, DataVariant, FieldDef, Visibility, EnumDef};
 
 pub struct PackageASTPrettyPrinter<'pkg> {
     result: String,
@@ -85,15 +85,96 @@ impl<'pkg> PackageASTPrettyPrinter<'pkg> {
                 self.pushi();
                 self.import_tree(it);
                 self.popi();
-            }
+            },
             ItemKind::Fn(ref function) => {
                 self.push_line(&format!("Function {}:", self.ident(&item.ident)));
                 self.pushi();
                 self.function_signature(&function.signature);
                 self.block(function.body.as_ref().unwrap());
                 self.popi();
+            },
+            ItemKind::Struct(ref data) => {
+                self.push_line(&format!(
+                    "Struct {}: {}\n", 
+                    self.ident(&item.ident), 
+                    self.data_variant(data)
+                ));
+            },
+            ItemKind::Enum(ref data) => {
+                let enum_val = self.enum_def(data);
+                self.push_line(&format!(
+                    "Enum {} {}\n",
+                    self.ident(&item.ident),
+                    enum_val
+                ));
             }
         }
+    }
+
+    fn enum_def(&mut self, def: &EnumDef) -> String {
+        let mut string = String::new();
+        string.push_str("{\n");
+        for variant in def.variants.iter() {
+            self.pushi();
+            string.push_str(&format!(
+                "{}{}: {}\n",
+                "    ".repeat(self.indent),
+                self.ident(&variant.ident),
+                self.data_variant(&variant.data),
+            ));
+            self.popi();
+        }
+        string.push_str(&format!("{}}}", "    ".repeat(self.indent)));
+        string
+    }
+
+    fn data_variant(&self, variant: &DataVariant) -> String {
+        let mut string = String::new();
+        match variant {
+            DataVariant::Unit => string.push_str("<unit>"),
+            DataVariant::Tuple { ref fields } => {
+                string.push_str("(\n");
+                string.push_str(&fields.iter().map(|f| format!(
+                    "{}{}",
+                    "    ".repeat(self.indent+1),
+                    self.field(f)
+                )).collect::<Vec<String>>().join("\n"));
+                string.push_str(&format!("\n{})", "    ".repeat(self.indent)));
+            },
+            DataVariant::Struct { ref fields } => {
+                string.push_str("{\n");
+                string.push_str(&fields.iter().map(|f| format!(
+                    "{}{}",
+                    "    ".repeat(self.indent+1),
+                    self.field(f)
+                )).collect::<Vec<String>>().join("\n"));
+                string.push_str(&format!("\n{}}}", "    ".repeat(self.indent)));
+            }
+        }
+
+        string
+    }
+
+    fn vis(&self, vis: &Visibility) -> String {
+        match vis {
+            Visibility::Inherited => "",
+            Visibility::Public => "pub "
+        }.to_string()
+    }
+
+    fn field(&self, field: &FieldDef) -> String {
+        let mut string = String::new();
+
+        string.push_str(&self.vis(&field.vis));
+        if field.ident.is_some() {
+            string.push_str(self.ident(field.ident.as_ref().unwrap()));
+            string.push_str(": ");
+            string.push_str(&self.ty(&field.ty))
+        } else {
+            string.push_str(&self.ty(&field.ty))
+        }
+
+        string
     }
 
     fn import_tree(&mut self, tree: &ImportTree) {

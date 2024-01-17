@@ -49,6 +49,22 @@ pub fn hello_world(self, hello_world: hello::world::this_is::MyType) -> () {
         continue;
     }
 }
+
+struct Hello;
+struct World(i32, pub f32);
+struct HelloWorld {
+    pub a: i32,
+    b: usize
+}
+
+enum Hello {
+    VariantA,
+    VariantB(i32, pub usize),
+    VariantC {
+        hello: isize,
+        pub world: usize
+    }
+}
 ";
 
 fn main() {

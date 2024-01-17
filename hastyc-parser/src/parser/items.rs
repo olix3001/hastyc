@@ -84,7 +84,9 @@ pub enum Visibility {
 pub enum ItemKind {
     Module(ItemStream),
     Import(ImportKind, ImportTree),
-    Fn(Function)
+    Fn(Function),
+    Struct(DataVariant),
+    Enum(EnumDef)
 }
 
 impl ItemKind {
@@ -92,7 +94,9 @@ impl ItemKind {
         match self {
             Self::Module(_) => "Module",
             Self::Import(_, _) => "Import",
-            Self::Fn(_) => "Function"
+            Self::Fn(_) => "Function",
+            Self::Struct(_) => "Struct",
+            Self::Enum(_) => "Enum"
         }
     }
 }
@@ -263,4 +267,40 @@ pub struct Pat {
 pub enum PatKind {
     SelfPat,
     Ident(Ident)
+}
+
+#[derive(Debug, Clone)]
+pub enum DataVariant {
+    Struct {
+        fields: Vec<FieldDef>,
+    },
+    Tuple {
+        fields: Vec<FieldDef>,
+    },
+    Unit
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldDef {
+    pub attrs: Attributes,
+    pub id: ASTNodeID,
+    pub span: Span,
+    pub vis: Visibility,
+    pub ident: Option<Ident>,
+    pub ty: Ty
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumDef {
+    pub variants: Vec<EnumVariant>
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumVariant {
+    pub attrs: Attributes,
+    pub id: ASTNodeID,
+    pub span: Span,
+    pub vis: Visibility,
+    pub ident: Ident,
+    pub data: DataVariant
 }

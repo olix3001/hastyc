@@ -67,16 +67,16 @@ pub enum ParserError {
         target: NameTarget,
         found: Token
     },
+    ExpectedVariant {
+        found: Token
+    }
 }
 
 #[derive(Debug)]
 pub enum NameTarget {
-    Module,
-    Import,
-    Attribute,
-    Fn,
-    Type,
-    Field
+    Module, Import, Attribute,
+    Fn, Type, Field,
+    Struct, Enum, EnumVariant
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
@@ -222,7 +222,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             let ident = self.expect_ident(
                 ParserError::ExpectedName {
                     target: NameTarget::Attribute,
-                    found: self.previous().clone()
+                    found: self.safe_peek().clone()
                 }
             )?;
 
@@ -248,6 +248,14 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         })
     }
 
+    /// Parse visibility modifier
+    pub fn parse_vis(&mut self) -> Result<Visibility, ParserError> {
+        if self.try_match(TokenKind::Pub) {
+            return Ok(Visibility::Public)
+        }
+        Ok(Visibility::Inherited)
+    }
+
     /// Parse single item, this can be module definition, structure,
     /// trait, function or anything top-level.
     pub fn parse_item(&mut self) -> Result<Item, ParserError> {
@@ -262,6 +270,8 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             TokenKind::Module => self.parse_module()?,
             TokenKind::Import => self.parse_import()?,
             TokenKind::Fn => self.parse_fn()?,
+            TokenKind::Struct => self.parse_struct_def()?,
+            TokenKind::Enum => self.parse_enum_def()?,
             _ => {
                 self.unwind_one();
                 Err(
@@ -283,13 +293,148 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         Ok(item)
     }
 
+    /// Try to parse struct/enum variant that is NOT unit variant.
+    pub fn parse_non_unit_variant_data(&mut self) -> Result<DataVariant, ParserError> {
+        // Tuple variant
+        if self.try_match(TokenKind::LeftParen) {
+            let mut fields = Vec::new();
+            while !self.check(TokenKind::RightParen) {
+                let field_span_start = self.safe_peek().span;
+                let attrs = self.parse_attributes()?;
+                let vis = self.parse_vis()?;
+                let ty = self.parse_ty()?;
+
+                fields.push(FieldDef {
+                    attrs,
+                    id: self.node_id(),
+                    span: Span::from_begin_end(field_span_start, self.previous().span),
+                    vis,
+                    ident: None,
+                    ty
+                });
+
+                if !self.try_match(TokenKind::Comma) { break; }
+            }
+
+            self.consume(TokenKind::RightParen)?;
+
+            return Ok(DataVariant::Tuple { fields });
+        } else if self.try_match(TokenKind::LeftBrace) { // Struct variant
+            let mut fields = Vec::new();
+            while !self.check(TokenKind::RightBrace) {
+                let field_span_start = self.safe_peek().span;
+                let attrs = self.parse_attributes()?;
+                let vis = self.parse_vis()?;
+                let field_name = self.expect_ident(ParserError::ExpectedName {
+                    target: NameTarget::Field,
+                    found: self.safe_peek().clone()
+                })?;
+                self.consume(TokenKind::Colon)?;
+                let ty = self.parse_ty()?;
+
+                fields.push(FieldDef {
+                    attrs,
+                    id: self.node_id(),
+                    span: Span::from_begin_end(field_span_start, self.previous().span),
+                    vis,
+                    ident: Some(field_name),
+                    ty
+                });
+
+                if !self.try_match(TokenKind::Comma) { break; }
+            }
+
+            self.consume(TokenKind::RightBrace)?;
+
+            return Ok(DataVariant::Struct { fields });
+        }
+
+        Err(ParserError::ExpectedVariant { found: self.safe_peek().clone() })
+    }
+
+    /// Struct definition like `struct Hello;` or `struct Bruh { }`
+    pub fn parse_struct_def(&mut self) -> Result<Item, ParserError> {
+        let span_start = self.previous().span;
+        let name = self.expect_ident(ParserError::ExpectedName {
+            target: NameTarget::Struct,
+            found: self.safe_peek().clone()
+        })?;
+
+        // Unit variant
+        let variant = if self.try_match(TokenKind::Semi) {
+            DataVariant::Unit
+        } else { self.parse_non_unit_variant_data()? };
+
+        if let DataVariant::Tuple { .. } = &variant {
+            self.consume(TokenKind::Semi)?;
+        }
+
+        Ok(Item {
+            attrs: Attributes::empty(),
+            id: self.node_id(),
+            visibility: Visibility::Inherited,
+            kind: ItemKind::Struct(variant),
+            ident: name,
+            span: Span::from_begin_end(span_start, self.previous().span)
+        })
+    }
+
+    /// Enum definition like `enum Hello { ... }`
+    pub fn parse_enum_def(&mut self) -> Result<Item, ParserError> {
+        let span_start = self.previous().span;
+        let name = self.expect_ident(ParserError::ExpectedName {
+            target: NameTarget::Enum,
+            found: self.safe_peek().clone()
+        })?;
+
+        self.consume(TokenKind::LeftBrace)?;
+        let mut variants = Vec::new();
+        while !self.check(TokenKind::RightBrace) {
+            let attrs = self.parse_attributes()?;
+            let vis = self.parse_vis()?;
+            let field_name = self.expect_ident(ParserError::ExpectedName {
+                target: NameTarget::EnumVariant,
+                found: self.safe_peek().clone()
+            })?;
+            let variant_span_start = self.safe_peek().span;
+            let variant = if self.check(TokenKind::Comma) || self.check(TokenKind::RightBrace) {
+                DataVariant::Unit
+            } else { self.parse_non_unit_variant_data()? };
+
+            println!("ENUM VARIANT: {:?}", variant);
+
+            variants.push(EnumVariant {
+                attrs,
+                id: self.node_id(),
+                span: Span::from_begin_end(variant_span_start, self.previous().span),
+                vis,
+                ident: field_name,
+                data: variant
+            });
+
+            if !self.try_match(TokenKind::Comma) {
+                break;
+            }
+        }
+        self.consume(TokenKind::RightBrace)?;
+
+        Ok(Item {
+            attrs: Attributes::empty(),
+            id: self.node_id(),
+            visibility: Visibility::Inherited,
+            kind: ItemKind::Enum(EnumDef { variants }),
+            ident: name,
+            span: Span::from_begin_end(span_start, self.previous().span)
+        })
+    }
+
     /// Module definition like `module hello { ... }`.
     pub fn parse_module(&mut self) -> Result<Item, ParserError> {
         let span_keyword = self.previous().span;
         let name = self.expect_ident(
             ParserError::ExpectedName { 
                 target: NameTarget::Module,
-                found: self.previous().clone()
+                found: self.safe_peek().clone()
             }
         )?;
 
@@ -405,7 +550,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
             let ident = self.expect_ident(
                 ParserError::ExpectedName { 
                     target: NameTarget::Import, 
-                    found: self.previous().clone()
+                    found: self.safe_peek().clone()
                 }
             )?;
 
@@ -429,7 +574,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         let ident = self.expect_ident(
             ParserError::ExpectedName {
                 target: NameTarget::Fn,
-                found: self.previous().clone()
+                found: self.safe_peek().clone()
             }
         )?;
 
@@ -588,7 +733,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
         let ident = self.expect_ident(
             ParserError::ExpectedName {
                 target: NameTarget::Type,
-                found: self.previous().clone()
+                found: self.safe_peek().clone()
             }
         )?;
 
