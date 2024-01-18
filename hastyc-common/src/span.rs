@@ -58,4 +58,39 @@ impl Span {
                 )
         } else { None }
     }
+
+    /// Converts span to relative start, eg. (line, col)
+    pub fn to_relative(&self, source: &SourceFile) -> (u32, u32) {
+        let mut line = 0;
+        let mut start = 0;
+        for (line_no, line_start) in source.lines.iter().enumerate() {
+            if *line_start > self.start {
+                line = line_no;
+                break;
+            }
+            start = *line_start
+        }
+
+        if line > 0 {
+            line = line - 1;
+        }
+
+        return (line as u32, self.start - start)
+    }
+
+    /// This returns (line_text, line_start_span)
+    pub fn get_line(&self, source: &SourceFile) -> (String, u32) {
+        let relative = self.to_relative(source);
+        let line_start = source.lines.get(relative.0 as usize).unwrap();
+        let line_end = source.lines.get(relative.0 as usize + 1);
+
+        let line = source.get_span(
+            &Span::new(source.id, *line_start + 1, match line_end {
+                Some(end) => *end,
+                None => source.clen as u32
+            })
+        );
+
+        (line, self.start - *line_start - 1)
+    }
 }

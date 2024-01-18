@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use crate::{identifiers::{PkgID, SourceFileID}, span::Span};
 
@@ -39,6 +39,18 @@ impl Debug for SourceFile {
 pub enum FileName {
     LocalPath(String),
     RawText
+}
+
+impl std::fmt::Display for FileName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RawText => f.write_str("<raw source>"),
+            Self::LocalPath(path) => f.write_str(
+                // TODO: make this relative to project root instead of canonical
+                PathBuf::from(path).canonicalize().unwrap().to_str().unwrap()
+            )
+        }
+    }
 }
 
 impl SourceFile {

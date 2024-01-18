@@ -1,5 +1,5 @@
 use hastyc_ast_fmt::PackageASTPrettyPrinter;
-use hastyc_common::{identifiers::{PkgID, SourceFileID}, source::SourceFile};
+use hastyc_common::{identifiers::{PkgID, SourceFileID}, source::SourceFile, error::{ErrorDisplay, CommonErrorContext}};
 use hastyc_parser::{lexer::Lexer, parser::Parser};
 
 const CODE: &str = "
@@ -72,6 +72,9 @@ fn test() {
         b: function.call()
     }
 }
+
+// fn a(hello: i32) hello
+// let a = 1;
 ";
 
 fn main() {
@@ -87,7 +90,13 @@ fn main() {
     let package = Parser::parse_from_root(&source, &ts);
 
     if let Err(err) = package {
-        panic!("{:?}", err);
+        println!(
+            "{}",
+            err.fmt_error(&CommonErrorContext {
+                source: &source
+            })
+        );
+        return;
     }
 
     println!("AST: {}", 

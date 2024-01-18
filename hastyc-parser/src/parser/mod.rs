@@ -3,7 +3,7 @@ mod stmt;
 
 pub use items::*;
 pub use stmt::*;
-use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, Ident, ASTNodeID}, span::Span, path::{Path, PathSegment}};
+use hastyc_common::{source::SourceFile, identifiers::{IDCounter, SymbolStorage, Ident, ASTNodeID}, span::Span, path::{Path, PathSegment}, error::{ErrorDisplay, CommonErrorContext}};
 
 use crate::lexer::{TokenStream, Token, TokenKind, LiteralKind};
 
@@ -72,11 +72,71 @@ pub enum ParserError {
     }
 }
 
+impl<'a> ErrorDisplay<'a, CommonErrorContext<'a>> for ParserError {
+    fn fmt(&self, fmt: &mut hastyc_common::error::ErrorFmt<'a>, ctx: &'a CommonErrorContext<'a>) {
+        match self {
+            Self::ExpectedToken { expected: _, ref found } => {
+                fmt
+                    .title(&format!(
+                        "No rules expected the token '{}'.",
+                        found.span.get_text(ctx.source).unwrap()
+                    ))
+                    .source(ctx.source, found.span)
+                    .cause("No rules expected this token here.");
+            }
+            Self::ExpectedItem { ref found } => {
+                fmt
+                    .title(&format!(
+                        "Expected item but found '{}'.",
+                        found.span.get_text(ctx.source).unwrap()
+                    ))
+                    .source(ctx.source, found.span)
+                    .cause("Only items are expected in modules.");
+            }
+            Self::ExpectedName { ref target, ref found } => {
+                fmt
+                    .title(&format!(
+                        "Expected name for {} but found '{}'.",
+                        target,
+                        found.span.get_text(ctx.source).unwrap()
+                    ))
+                    .source(ctx.source, found.span)
+                    .cause("Names must be identifiers.");
+            }
+            Self::ExpectedVariant { ref found } => {
+                fmt 
+                    .title(&format!(
+                        "Expected struct or enum variant but found '{}'.",
+                        found.span.get_text(ctx.source).unwrap()
+                    ))
+                    .source(ctx.source, found.span)
+                    .cause("Struct/enum variant must be unit, tuple or struct-like. What you provided is none of those.");
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum NameTarget {
     Module, Import, Attribute,
     Fn, Type, Field,
     Struct, Enum, EnumVariant
+}
+
+impl std::fmt::Display for NameTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Module => f.write_str("module"),
+            Self::Import => f.write_str("import"),
+            Self::Attribute => f.write_str("attribute"),
+            Self::Fn => f.write_str("function"),
+            Self::Type => f.write_str("type"),
+            Self::Field => f.write_str("field"),
+            Self::Struct => f.write_str("struct"),
+            Self::Enum => f.write_str("enum"),
+            Self::EnumVariant => f.write_str("enum variant")
+        }
+    }
 }
 
 impl<'pkg, 'a> Parser<'pkg, 'a> {
@@ -276,7 +336,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
                 self.unwind_one();
                 Err(
                     ParserError::ExpectedItem {
-                        found: self.previous().clone()
+                        found: self.safe_peek().clone()
                     }
                 )?
             }
