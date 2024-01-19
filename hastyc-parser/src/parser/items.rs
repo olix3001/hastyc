@@ -261,6 +261,14 @@ pub struct Pat {
     pub kind: PatKind,
     pub span: Span
 }
+impl Pat {
+    pub fn ident(&self) -> Option<&Ident> {
+        match self.kind {
+            PatKind::SelfPat => None,
+            PatKind::Ident(ref ident) => Some(ident)
+        }
+    }
+}
 
 /// Kind of pattern.
 #[derive(Debug, Clone)]

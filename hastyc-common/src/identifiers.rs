@@ -1,4 +1,4 @@
-use std::{sync::atomic::AtomicU32, collections::{BTreeMap, HashMap}};
+use std::{sync::atomic::AtomicU32, collections::{BTreeMap, HashMap}, cmp::Ordering};
 
 use crate::span::Span;
 
@@ -64,9 +64,29 @@ impl Ident {
     }
 }
 
+impl PartialEq for Ident {
+    fn eq(&self, other: &Self) -> bool {
+        self.symbol == other.symbol
+    }
+}
+impl Eq for Ident {}
+
+impl PartialOrd for Ident {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.symbol.cmp(&other.symbol))
+    }
+}
+
+impl Ord for Ident {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Unwrapping here is safe as partial_cmp uses cmp under the hood
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 /// Symbol used for string interning, this holds only id of internal ident
 /// for memory optimization purposes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Symbol(pub(crate) u32);
 
 /// Counter that uses atomic u32 internally. Used for
@@ -127,7 +147,7 @@ impl_basic_id!(SourceFileID);
 
 /// ID of node in AST tree. This is unique **ONLY** in package context,
 /// and it may occur that this repeats between multiple packages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ASTNodeID(pub u32);
 impl ASTNodeID {
     pub fn new(id: u32) -> Self {
