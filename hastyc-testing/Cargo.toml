@@ -9,4 +9,5 @@ edition = "2021"
 hastyc-common = { path = "../hastyc-common" }
 hastyc-parser = { path = "../hastyc-parser" }
 hastyc-ast-fmt = { path = "../hastyc-ast-fmt" }
+hastyc-passes = { path = "../hastyc-passes" }
 env_logger = "0.10.1"

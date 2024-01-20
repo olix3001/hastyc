@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use hastyc_common::identifiers::ASTNodeID;
 use hastyc_parser::parser::{ItemStream, Package, Item, StmtStream, Stmt, Expr};
 
-mod name_resolve;
+pub mod name_resolve;
 
 /// Context for the current compiler pass. This contains all information about resolved
 /// names, types, and other things.

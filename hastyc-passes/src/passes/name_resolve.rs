@@ -1,29 +1,45 @@
 use std::collections::{HashMap, BTreeMap};
 
-use hastyc_common::identifiers::ASTNodeID;
+use hastyc_common::{identifiers::{ASTNodeID, Ident}, path::Path};
 use hastyc_parser::parser::{ItemKind, StmtKind, LetBindingKind, ExprKind};
 
 use crate::util::RibStack;
 
 use super::ASTPass;
 
+#[derive(Debug)]
 pub struct NameResolvePass {
     stack: RibStack,
-    resolved: BTreeMap<ASTNodeID, ASTNodeID>
+    resolved: BTreeMap<ASTNodeID, ASTNodeID>,
+    subpasses: BTreeMap<ASTNodeID, NameResolvePass>,
 }
 
 impl NameResolvePass {
     pub fn new() -> Self {
         Self {
             stack: RibStack::new(),
-            resolved: BTreeMap::new()
+            resolved: BTreeMap::new(),
+            subpasses: BTreeMap::new()
         }
     }
 
-    pub fn join(&mut self, other: NameResolvePass) {
-        for (k, v) in other.resolved.into_iter() {
-            self.resolved.insert(k, v);
+    pub fn resolve_ident(&self, ident: Ident) -> Option<&ASTNodeID> {
+        return self.stack.get_ident(&ident);
+    }
+
+    pub fn resolve_path(&self, path: &Path) -> Option<&ASTNodeID> {
+        let mut segments = path.segments.iter();
+        let mut seg = self.resolve_ident(segments.next().unwrap().ident.clone());
+        #[allow(unused_assignments)]
+        let mut sub = self;
+        if seg.is_none() { return None }
+        while let Some(ref subseg) = segments.next() {
+            if let Some(ref subsub) = self.subpasses.get(seg.unwrap()) {
+                sub = subsub
+            } else { break; }
+            seg = sub.resolve_ident(subseg.ident.clone());
         }
+        seg
     }
 }
 
@@ -35,7 +51,13 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
     ) {
         // Register all item names
         for item in stream.items.iter() {
-            self.stack.add_ident_mapping(item.ident.clone(), item.id)
+            self.stack.add_ident_mapping(item.ident.clone(), item.id);
+
+            if let ItemKind::Module(ref module) = item.kind {
+                let mut subpass = NameResolvePass::new();
+                subpass.traverse_itemstream(module, ctx);
+                self.subpasses.insert(item.id, subpass);
+            }
         }
         self.stack.push();
 
@@ -64,11 +86,7 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
         ctx: &mut super::QueryContext
     ) {
         match item.kind {
-            ItemKind::Module(ref module) => { // Begin subpass
-                let mut subpass = NameResolvePass::new();
-                subpass.traverse_itemstream(module, ctx);
-                self.join(subpass);
-            }
+            ItemKind::Module(ref _module) => {}
             ItemKind::Fn(ref function) => {
                 // TODO: Generics
                 // Go to signature
@@ -100,6 +118,12 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
                     self.visit_expr(expr, ctx);
                 }
             }
+            StmtKind::Expr(ref expr) => {
+                self.visit_expr(expr, ctx);
+            }
+            StmtKind::ExprNS(ref expr) => {
+                self.visit_expr(expr, ctx);
+            }
             _ => { println!("UNIMPLEMENTED NAME RESOLVE STMT KIND") }
         }
     }
@@ -111,7 +135,8 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
     ) {
         match expr.kind {
             ExprKind::Path(ref path) => {
-                // TODO: Figure out how to resolve paths with multiple segments
+                let target = self.resolve_path(path);
+                self.resolved.insert(expr.id, *target.unwrap());
             }
             _ => { println!("UNIMPLEMENTED NAME RESOLVE EXPR KIND") }
         }
