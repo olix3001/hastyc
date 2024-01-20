@@ -62,35 +62,49 @@ impl Span {
     /// Converts span to relative start, eg. (line, col)
     pub fn to_relative(&self, source: &SourceFile) -> (u32, u32) {
         let mut line = 0;
-        let mut start = 0;
-        for (line_no, line_start) in source.lines.iter().enumerate() {
-            if *line_start > self.start {
-                line = line_no;
-                break;
+        let mut col = 0;
+
+        for (i, char) in source.src.as_ref().unwrap().chars().enumerate() {
+            if char == '\n' {
+                line += 1;
+                col = 0;
+            } else {
+                col += 1;
             }
-            start = *line_start
+
+            if i == self.start as usize {
+                return (line + 1, col)
+            }
+        }
+        return (0, 0)
+    }
+
+    fn get_line_start_end(source: &SourceFile, line: u32) -> (u32, u32) {
+        let mut start = 0;
+        let mut cline = 0;
+        
+        for (i, char) in source.src.as_ref().unwrap().chars().enumerate() {
+            if char == '\n' {
+                if cline + 1 == line {
+                    return (start, i as u32)
+                }
+                start = i as u32;
+                cline += 1;
+            }
         }
 
-        if line > 0 {
-            line = line - 1;
-        }
-
-        return (line as u32, self.start - start)
+        return (0, 0)
     }
 
     /// This returns (line_text, line_start_span)
     pub fn get_line(&self, source: &SourceFile) -> (String, u32) {
         let relative = self.to_relative(source);
-        let line_start = source.lines.get(relative.0 as usize).unwrap();
-        let line_end = source.lines.get(relative.0 as usize + 1);
+        let (line_start, line_end) = Self::get_line_start_end(source, relative.0);
 
         let line = source.get_span(
-            &Span::new(source.id, *line_start + 1, match line_end {
-                Some(end) => *end,
-                None => source.clen as u32
-            })
+            &Span::new(source.id, line_start + 1, line_end)
         );
 
-        (line, self.start - *line_start - 1)
+        (line, self.start - line_start - 1)
     }
 }

@@ -771,7 +771,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
 
     pub fn parse_path(&mut self) -> Result<Path, ParserError> {
         let mut segments = Vec::new();
-        let span_start = self.previous().span;
+        let span_start = self.safe_peek().span;
 
         loop {
             let segment = self.parse_path_segment()?;
@@ -799,7 +799,7 @@ impl<'pkg, 'a> Parser<'pkg, 'a> {
     }
     
     pub fn parse_block(&mut self) -> Result<Block, ParserError> {
-        let span_start = self.previous().span;
+        let span_start = self.safe_peek().span;
 
         self.consume(TokenKind::LeftBrace)?;
         let mut stmts = Vec::new();

@@ -41,6 +41,13 @@ impl<'a> ErrorFmt<'a> {
         self
     }
 
+    pub fn help(&mut self, message: &'a str) -> &mut Self {
+        self.seg(HelpMessageSegment {
+            message
+        });
+        self
+    }
+
     pub fn build(&mut self) -> String {
         let mut result = String::new();
         for seg in self.segments.iter() {
@@ -140,6 +147,20 @@ impl<'a> ErrorFmtSegment for ErrorCauseSegment<'a> {
             "{} {}",
             "cause:".purple().bold(),
             self.message.red().bold()
+        )
+    }
+}
+
+pub struct HelpMessageSegment<'a> {
+    message: &'a str
+}
+
+impl<'a> ErrorFmtSegment for HelpMessageSegment<'a> {
+    fn stringify(&self) -> String {
+        format!(
+            "{} {}",
+            "help:".yellow().bold(),
+            self.message.bold()
         )
     }
 }

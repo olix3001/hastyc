@@ -15,24 +15,28 @@ pub struct QueryContext<'ctx> {
 
 /// Pass that modifies AST or query context
 pub trait ASTPass<'ctx> {
-    fn traverse(&mut self, ctx: &'ctx mut QueryContext) {
+    type Err;
+
+    fn traverse(&mut self, ctx: &'ctx mut QueryContext) -> Result<(), Self::Err> {
         self.traverse_itemstream(&ctx.package.items, ctx)
     }
-    fn traverse_itemstream(&mut self, stream: &ItemStream, ctx: &mut QueryContext) {
+    fn traverse_itemstream(&mut self, stream: &ItemStream, ctx: &mut QueryContext) -> Result<(), Self::Err> {
         for item in stream.items.iter() {
-            self.visit_item(item, ctx);
+            self.visit_item(item, ctx)?;
         }
+        Ok(())
     }
-    fn traverse_stmtstream(&mut self, stream: &StmtStream, ctx: &mut QueryContext) {
+    fn traverse_stmtstream(&mut self, stream: &StmtStream, ctx: &mut QueryContext) -> Result<(), Self::Err> {
         for stmt in stream.stmts.iter() {
-            self.visit_stmt(stmt, ctx);
+            self.visit_stmt(stmt, ctx)?;
         }
+        Ok(())
     }
 
-    fn visit_item(&mut self, item: &Item, ctx: &mut QueryContext);
-    fn visit_stmt(&mut self, stmt: &Stmt, ctx: &mut QueryContext);
-    fn visit_expr(&mut self, expr: &Expr, ctx: &mut QueryContext);
-    fn finish(&mut self, _ctx: &mut QueryContext) {}
+    fn visit_item(&mut self, item: &Item, ctx: &mut QueryContext) -> Result<(), Self::Err>;
+    fn visit_stmt(&mut self, stmt: &Stmt, ctx: &mut QueryContext) -> Result<(), Self::Err>;
+    fn visit_expr(&mut self, expr: &Expr, ctx: &mut QueryContext) -> Result<(), Self::Err>;
+    fn finish(&mut self, _ctx: &mut QueryContext) -> Result<(), Self::Err> { Ok(()) }
 }
 
 impl<'ctx> QueryContext<'ctx> {

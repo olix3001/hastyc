@@ -86,7 +86,8 @@ const CODE: &str = "
     }
 
     fn bruh() {
-        hello::world::my_function
+        let a = hello::world::my_function;
+        let b = a;
     }
 ";
 
@@ -119,6 +120,14 @@ fn main() {
     let pkg = package.as_ref().unwrap();
     let mut ctx = QueryContext::for_package(pkg);
     let mut pass = NameResolvePass::new();
-    pass.traverse(&mut ctx);
+    if let Err(err) = pass.traverse(&mut ctx) {
+        println!(
+            "{}",
+            err.fmt_error(&CommonErrorContext {
+                source: &source
+            })
+        );
+        return;
+    }
     println!("Pass: {:?}", pass);
 }

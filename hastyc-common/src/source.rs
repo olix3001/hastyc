@@ -12,8 +12,6 @@ pub struct SourceFile {
     pub src: Option<String>,
     /// Length of the source code in characters.
     pub clen: usize,
-    /// Markers of line beginnings in the source file.
-    pub lines: Vec<u32>,
     /// Package associated with this source file.
     pub pkg: PkgID,
     /// ID associated with this source.
@@ -54,28 +52,14 @@ impl std::fmt::Display for FileName {
 }
 
 impl SourceFile {
-    fn calculate_lines(text: &str) -> Vec<u32> {
-        let mut lines = Vec::new();
-
-        for (i, c) in text.chars().enumerate() {
-            if c == '\n' {
-                lines.push(i as u32);
-            }
-        }
-
-        lines
-    }
-
     /// Creates new source file from raw text, this is
     /// useful for testing.
     pub fn new_raw(text: String, pkg: PkgID, id: SourceFileID) -> Self {
         let len = text.len();
-        let lines = Self::calculate_lines(&text);
         Self {
             name: FileName::RawText,
             src: Some(text),
             clen: len,
-            lines: lines,
             pkg,
             id
         }
