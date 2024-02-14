@@ -1,7 +1,7 @@
 use hastyc_ast_fmt::PackageASTPrettyPrinter;
-use hastyc_common::{identifiers::{PkgID, SourceFileID}, source::SourceFile, error::{ErrorDisplay, CommonErrorContext}};
+use hastyc_common::{error::{CommonErrorContext, ErrorDisplay}, identifiers::{ASTNodeID, PkgID, SourceFileID}, source::SourceFile};
 use hastyc_parser::{lexer::Lexer, parser::Parser};
-use hastyc_passes::passes::{QueryContext, name_resolve::NameResolvePass, ASTPass};
+use hastyc_passes::passes::{name_resolve::NameResolvePass, ASTPass, GetTyQuery, QueryContext};
 
 // const CODE: &str = "
 // #[test_attribute]
@@ -81,13 +81,17 @@ use hastyc_passes::passes::{QueryContext, name_resolve::NameResolvePass, ASTPass
 const CODE: &str = "
     module hello {
         module world {
-            fn my_function() {}
+            struct MyStruct {
+                a: Bruh
+            }
+
+            struct Bruh;
         }
     }
 
     fn bruh() {
-        let a = hello::world::my_function;
-        let b = a;
+        let test: hello::world::MyStruct;
+        let bruh = test.a;
     }
 ";
 
@@ -113,8 +117,8 @@ fn main() {
         return;
     }
 
-    println!("AST: {}", 
-        PackageASTPrettyPrinter::pretty_print(package.as_ref().unwrap())
+    println!("AST: {:#?}", 
+        package
     );
 
     let pkg = package.as_ref().unwrap();
@@ -129,5 +133,7 @@ fn main() {
         );
         return;
     }
-    println!("Pass: {:?}", pass);
+    // println!("Pass: {:?}", pass);
+    println!("Cx: {:?}", ctx);
+    println!("Type of test.a: {:?}", ctx.query(GetTyQuery(ASTNodeID::new(20))));
 }
