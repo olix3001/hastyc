@@ -1,16 +1,15 @@
 use std::collections::BTreeMap;
 
 use hastyc_common::{identifiers::{ASTNodeID, Ident}, path::Path, error::{ErrorDisplay, CommonErrorContext}};
-use hastyc_parser::parser::{ItemKind, StmtKind, LetBindingKind, ExprKind};
+use hastyc_parser::parser::{DataVariant, ExprKind, ItemKind, LetBindingKind, StmtKind, TyKind};
 
 use crate::util::RibStack;
 
-use super::ASTPass;
+use super::{ASTPass, QueryContext};
 
 #[derive(Debug)]
 pub struct NameResolvePass {
     stack: RibStack,
-    resolved: BTreeMap<ASTNodeID, ASTNodeID>,
     subpasses: BTreeMap<ASTNodeID, NameResolvePass>,
 }
 
@@ -18,7 +17,6 @@ impl NameResolvePass {
     pub fn new() -> Self {
         Self {
             stack: RibStack::new(),
-            resolved: BTreeMap::new(),
             subpasses: BTreeMap::new()
         }
     }
@@ -27,19 +25,64 @@ impl NameResolvePass {
         return self.stack.get_ident(&ident);
     }
 
-    pub fn resolve_path(&self, path: &Path) -> Result<&ASTNodeID, u32> {
+    pub fn resolve_path(&self, path: &Path) -> Result<&ASTNodeID, NameResolveError> {
         let mut segments = path.segments.iter();
         let mut c = 0;
         let mut sub = self;
         while let Some(ref seg) = segments.next() {
             let seg = sub.resolve_ident(seg.ident.clone());
-            if seg.is_none() { return Err(c); }
+            if seg.is_none() { return Err(
+                NameResolveError::UnknownPath {
+                    path: path.clone(),
+                    start_idx: c
+                }
+            ); }
             c += 1;
             if let Some(ref subsub) = sub.subpasses.get(seg.unwrap()) {
                 sub = subsub;
             } else { return Ok(seg.unwrap()); }
         }
-        Err(0)
+        Err(NameResolveError::UnknownPath {
+            path: path.clone(),
+            start_idx: 0
+        })
+    }
+
+    fn resolve_ty(
+        &mut self, ty: &hastyc_parser::parser::Ty,
+    ) -> Result<Option<&ASTNodeID>, NameResolveError> {
+        match ty.kind {
+            TyKind::Path(ref path) => Ok(Some(self.resolve_path(path)?)),
+            TyKind::SelfTy => unimplemented!("Name resolution for Self type is not implemented"),
+            _ => { Ok(None) }
+        }
+    }
+
+    fn visit_datavariant(
+        &mut self,
+        dv: &DataVariant,
+        cx: &mut QueryContext,
+        item_id: ASTNodeID
+    ) -> Result<(), NameResolveError> {
+        match dv {
+            DataVariant::Unit => { },
+            DataVariant::Struct { ref fields } => {
+                let mut subpass = NameResolvePass::new();
+                for field in fields.iter() {
+                    if let Some(rty) = self.resolve_ty(&field.ty)? {
+                        let rty = *rty;
+                        cx.resolved_names.insert(field.id, rty);
+                    }
+                    subpass.stack.add_ident_mapping(field.ident.as_ref().unwrap().clone(), field.id);
+                }
+                self.subpasses.insert(item_id, subpass);
+            },
+            DataVariant::Tuple { ref fields } => {
+                let mut subpass = NameResolvePass::new();
+                unimplemented!("Tuple struct variant is not yet supported")
+            }
+        }
+        Ok(())
     }
 }
 
@@ -97,7 +140,13 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
         ctx: &mut super::QueryContext
     ) -> Result<(), NameResolveError> {
         match item.kind {
-            ItemKind::Module(ref _module) => {}
+            ItemKind::Module(ref module) => {
+                if !self.subpasses.contains_key(&item.id) {
+                    let mut subpass = NameResolvePass::new();
+                    subpass.traverse_itemstream(module, ctx)?;
+                    self.subpasses.insert(item.id, subpass);
+                }
+            }
             ItemKind::Fn(ref function) => {
                 // TODO: Generics
                 // Go to signature
@@ -111,7 +160,13 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
                 // Go to body
                 self.traverse_stmtstream(&function.body.as_ref().unwrap().stmts, ctx)?;
             }
-            _ => { println!("UNIMPLEMENTED NAME RESOLVE ITEM KIND") }
+            ItemKind::Import(ref kind, ref tree) => {
+                unimplemented!("Name resolution for imports is not yet implemented");
+            },
+            ItemKind::Struct(ref datavar) => {
+                self.visit_datavariant(datavar, ctx, item.id)?;
+            },
+            _ => todo!()
         }
         Ok(())
     }
@@ -119,24 +174,32 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
     fn visit_stmt(
         &mut self,
         stmt: &hastyc_parser::parser::Stmt,
-        ctx: &mut super::QueryContext
+        cx: &mut super::QueryContext
     ) -> Result<(), NameResolveError> {
         match stmt.kind {
             StmtKind::LetBinding(ref binding) => {
                 if let Some(ident) = binding.pat.ident() {
                     self.stack.add_ident_mapping(ident.clone(), binding.id);
                 }
+                if let Some(ref ty) = binding.ty {
+                    if let Some(ty_resolved) = self.resolve_ty(ty)? {
+                        let ty_resolved = *ty_resolved;
+                        cx.resolved_names.insert(binding.id, ty_resolved);
+                    }
+                }
                 if let LetBindingKind::Init(ref expr) = binding.kind {
-                    self.visit_expr(expr, ctx)?;
+                    self.visit_expr(expr, cx)?;
                 }
             }
             StmtKind::Expr(ref expr) => {
-                self.visit_expr(expr, ctx)?;
+                self.visit_expr(expr, cx)?;
             }
             StmtKind::ExprNS(ref expr) => {
-                self.visit_expr(expr, ctx)?;
+                self.visit_expr(expr, cx)?;
             }
-            _ => { println!("UNIMPLEMENTED NAME RESOLVE STMT KIND") }
+            StmtKind::Item(ref item) => {
+                self.visit_item(&item, cx)?;
+            }
         }
         Ok(())
     }
@@ -144,19 +207,17 @@ impl<'ctx> ASTPass<'ctx> for NameResolvePass {
     fn visit_expr(
         &mut self,
         expr: &hastyc_parser::parser::Expr,
-        _ctx: &mut super::QueryContext
+        cx: &mut super::QueryContext
     ) -> Result<(), NameResolveError> {
         match expr.kind {
             ExprKind::Path(ref path) => {
-                let target = self.resolve_path(path);
-                match target {
-                    Ok(target) => self.resolved.insert(expr.id, *target),
-                    Err(idx) => Err(NameResolveError::UnknownPath {
-                        path: path.clone(), start_idx: idx 
-                    })?
-                };
+                let target = self.resolve_path(path)?;
+                cx.resolved_names.insert(expr.id, *target);
             }
-            _ => { println!("UNIMPLEMENTED NAME RESOLVE EXPR KIND") }
+            ExprKind::Field(ref subexpr, ref ident) => {
+                self.visit_expr(&subexpr, cx)?;
+            }
+            _ => todo!()
         }
         Ok(())
     }

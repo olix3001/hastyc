@@ -147,7 +147,7 @@ impl_basic_id!(SourceFileID);
 
 /// ID of node in AST tree. This is unique **ONLY** in package context,
 /// and it may occur that this repeats between multiple packages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ASTNodeID(pub u32);
 impl ASTNodeID {
     pub fn new(id: u32) -> Self {
